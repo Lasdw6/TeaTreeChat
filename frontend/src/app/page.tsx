@@ -41,6 +41,8 @@ export default function ChatPage() {
   
   // Use a ref to track the content of the streaming message to avoid state closure issues
   const streamingContentRef = useRef<string>('');
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const prevChunkRef = useRef<string>('');
   
   // Mark when component is mounted on the client
   useEffect(() => {
@@ -127,24 +129,22 @@ export default function ChatPage() {
               ) {
                 content = chunk.choices[0].delta.content || '';
                 if (content) {
-                  setDebugInfo(d => d + `\nChunk content: ${content}`);
+                  // Enhanced debug output for chunk comparison
+                  const charCodes = (str: string) => str.split('').map(c => c.charCodeAt(0)).join(',');
+                  setDebugInfo(d => d +
+                    `\nChunk content: [${content}] (len=${content.length}) codes: [${charCodes(content)}]` +
+                    `\nPrev chunk: [${prevChunkRef.current}] (len=${prevChunkRef.current.length}) codes: [${charCodes(prevChunkRef.current)}]`
+                  );
 
-                  // Only append if this chunk's content is not already at the end of the current streaming content
-                  const current = streamingContentRef.current;
-                  if (!current.endsWith(content)) {
-                    // If the content is already somewhere in the string, but not at the end, still append
-                    // (this handles partial overlap, e.g. "hello" + "llo world" should become "hello world")
-                    // Try to find the largest overlap between current and content
-                    let overlap = 0;
-                    for (let i = 1; i < content.length; i++) {
-                      if (current.endsWith(content.slice(0, i))) {
-                        overlap = i;
-                      }
-                    }
-                    streamingContentRef.current += content.slice(overlap);
-                  } else {
+                  // Efficient duplicate skipping: skip if exactly equal to previous chunk
+                  if (content.length === prevChunkRef.current.length && content === prevChunkRef.current) {
                     setDebugInfo(d => d + `\nSkipping duplicate chunk: ${content}`);
+                  } else {
+                    // Find the largest overlap between current and content
+                    
+                    streamingContentRef.current += content;
                   }
+                  prevChunkRef.current = content;
                 }
               }
             } catch (err) {
@@ -195,22 +195,32 @@ export default function ChatPage() {
       
       setMessages(prevMessages => [...prevMessages, errorMessage]);
     } finally {
-      setStreamingMessage(null);
-      setLoading(false);
-      setDebugInfo(prev => prev + '\nRequest finished');
+      // In finally block, always append the last received chunk if it was skipped
+      if (prevChunkRef.current && !streamingContentRef.current.endsWith(prevChunkRef.current)) {
+        streamingContentRef.current += prevChunkRef.current;
+      }
+      // Force a final update to the streaming message before clearing it
+      setStreamingMessage((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          content: streamingContentRef.current,
+        };
+      });
+      // Wait for the next animation frame to ensure React has rendered the last chunk
+      requestAnimationFrame(() => {
+        setStreamingMessage(null);
+        setLoading(false);
+        setDebugInfo(prev => prev + '\nRequest finished');
+      });
     }
   }, [messages, selectedModel, loading, isClient]);
   
   // Combine messages with streaming message for display
   const displayMessages = [...messages];
-  if (streamingMessage) {
-    // Clean up streaming message for display
-    const cleanedStreamingMessage = {
-      ...streamingMessage,
-      content: streamingMessage.content ? cleanupStreamingText(streamingMessage.content) : '',
-    };
-    displayMessages.push(cleanedStreamingMessage);
-  }
+  // Do NOT push the streaming message to displayMessages here
+  // Instead, pass its id to MessageList for targeted update
+  const streamingMessageId = streamingMessage ? streamingMessage.id : undefined;
   
   if (!isClient) {
     return (
@@ -239,14 +249,21 @@ export default function ChatPage() {
         />
         
         <div className="flex-grow overflow-hidden flex flex-col">
-          <MessageList messages={displayMessages} loading={loading && !streamingMessage} />
-          
+          <MessageList
+            messages={
+              streamingMessage && !displayMessages.some(m => m.id === streamingMessage.id)
+                ? [...displayMessages, streamingMessage]
+                : displayMessages
+            }
+            loading={loading && !streamingMessage}
+            streamingMessageId={streamingMessageId}
+          />
+          <div ref={messagesEndRef} />
           <MessageInput
             onSendMessage={handleSendMessage}
             disabled={loading}
             placeholder="Type your message..."
           />
-          
           {/* Debug information - remove in production */}
           <div className="p-2 text-xs text-gray-400 font-mono bg-gray-800 border-t border-gray-700 overflow-auto max-h-40 opacity-90">
             <div>Debug Info:</div>
