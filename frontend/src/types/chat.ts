@@ -5,6 +5,7 @@ export interface Message {
   role: Role;
   content: string;
   createdAt?: Date;
+  regeneration_id?: string;
 }
 
 export interface ChatRequest {

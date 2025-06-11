@@ -146,37 +146,67 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   return (
     <Box sx={{ 
       width: 300, 
-      bgcolor: 'background.paper', 
+      bgcolor: '#1a1a1a',
       borderRight: 1, 
-      borderColor: 'divider',
+      borderColor: '#333',
       display: 'flex',
       flexDirection: 'column',
-      height: '100vh'
+      height: '100vh',
+      color: '#fff'
     }}>
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h6">Chats</Typography>
+      <Box sx={{ 
+        p: 2, 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        borderBottom: 1,
+        borderColor: '#333'
+      }}>
+        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 600 }}>Chats</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setIsNewChatDialogOpen(true)}
           size="small"
+          sx={{
+            bgcolor: '#6366f1',
+            '&:hover': {
+              bgcolor: '#4f46e5'
+            }
+          }}
         >
           New Chat
         </Button>
       </Box>
 
       {error && (
-        <Typography color="error" style={{ margin: '16px' }}>
+        <Typography 
+          color="error" 
+          sx={{ 
+            margin: '16px',
+            bgcolor: 'rgba(239, 68, 68, 0.1)',
+            p: 1,
+            borderRadius: 1,
+            border: '1px solid rgba(239, 68, 68, 0.2)'
+          }}
+        >
           {error}
         </Typography>
       )}
 
-      <List sx={{ overflow: 'auto', flex: 1 }}>
+      <List sx={{ 
+        overflow: 'auto', 
+        flex: 1,
+        '& .MuiListItem-root': {
+          px: 1
+        }
+      }}>
         {chats.map((chat) => (
           <ListItem
             key={chat.id}
             disablePadding
             sx={{
+              mb: 0.5,
               '&:hover .delete-button': {
                 opacity: 1,
               },
@@ -190,6 +220,10 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
                 sx={{
                   opacity: 0,
                   transition: 'opacity 0.2s',
+                  color: '#ef4444',
+                  '&:hover': {
+                    bgcolor: 'rgba(239, 68, 68, 0.1)'
+                  }
                 }}
               >
                 <DeleteIcon />
@@ -199,32 +233,31 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
             <ListItemButton
               selected={selectedChatId === chat.id}
               onClick={() => onSelectChat(chat.id)}
+              sx={{
+                borderRadius: 1,
+                '&.Mui-selected': {
+                  bgcolor: '#6366f1',
+                  '&:hover': {
+                    bgcolor: '#4f46e5'
+                  }
+                },
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.05)'
+                }
+              }}
             >
               <ListItemText
-                primary={chat.title}
-                secondary={
-                  <>
-                    <Typography
-                      component="span"
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{
-                        display: 'block',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {chat.last_message || 'No messages yet'}
-                    </Typography>
-                    <Typography
-                      component="span"
-                      variant="caption"
-                      color="text.secondary"
-                    >
-                      {new Date(chat.created_at).toLocaleDateString()}
-                    </Typography>
-                  </>
+                primary={
+                  <Typography 
+                    variant="body1" 
+                    sx={{ 
+                      color: selectedChatId === chat.id ? '#fff' : '#e5e7eb',
+                      fontWeight: 500,
+                      fontSize: '0.95rem'
+                    }}
+                  >
+                    {chat.title || 'New Chat'}
+                  </Typography>
                 }
               />
             </ListItemButton>
@@ -232,22 +265,22 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         ))}
       </List>
 
-      {/* User Profile Box */}
       <Paper
         elevation={0}
         sx={{
           p: 2,
           borderTop: 1,
-          borderColor: 'divider',
+          borderColor: '#333',
           mt: 'auto',
           display: 'flex',
           alignItems: 'center',
           gap: 2,
+          bgcolor: '#1a1a1a'
         }}
       >
         <Avatar 
           sx={{ 
-            bgcolor: 'primary.main',
+            bgcolor: '#6366f1',
             width: 40,
             height: 40,
             fontSize: '1.2rem'
@@ -262,19 +295,20 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
               fontWeight: 600,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
+              whiteSpace: 'nowrap',
+              color: '#fff'
             }}
           >
             {user.name || `User ${user.id}`}
           </Typography>
           <Typography 
             variant="caption" 
-            color="text.secondary"
             sx={{
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
-              display: 'block'
+              display: 'block',
+              color: '#9ca3af'
             }}
           >
             {user.email || 'No email available'}
@@ -282,8 +316,17 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         </Box>
       </Paper>
 
-      <Dialog open={isNewChatDialogOpen} onClose={() => setIsNewChatDialogOpen(false)}>
-        <DialogTitle>Create New Chat</DialogTitle>
+      <Dialog 
+        open={isNewChatDialogOpen} 
+        onClose={() => setIsNewChatDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            bgcolor: '#1a1a1a',
+            color: '#fff'
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: '#fff' }}>Create New Chat</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -293,11 +336,47 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
             variant="outlined"
             value={newChatTitle}
             onChange={(e) => setNewChatTitle(e.target.value)}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                color: '#fff',
+                '& fieldset': {
+                  borderColor: '#333',
+                },
+                '&:hover fieldset': {
+                  borderColor: '#6366f1',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: '#6366f1',
+                },
+              },
+              '& .MuiInputLabel-root': {
+                color: '#9ca3af',
+              },
+              '& .MuiInputLabel-root.Mui-focused': {
+                color: '#6366f1',
+              },
+            }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsNewChatDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreateChat} variant="contained">Create</Button>
+          <Button 
+            onClick={() => setIsNewChatDialogOpen(false)}
+            sx={{ color: '#9ca3af' }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleCreateChat} 
+            variant="contained"
+            sx={{
+              bgcolor: '#6366f1',
+              '&:hover': {
+                bgcolor: '#4f46e5'
+              }
+            }}
+          >
+            Create
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
