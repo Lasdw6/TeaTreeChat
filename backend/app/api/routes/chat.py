@@ -28,9 +28,10 @@ class ChatCreate(BaseModel):
     user_id: int
 
 class MessageCreate(BaseModel):
-    id: Optional[str] = None
+    id: Optional[int] = None
     role: str
     content: str
+    regeneration_id: Optional[str] = None
 
 class ChatResponse(BaseModel):
     id: int
@@ -563,27 +564,49 @@ def add_message(chat_id: int, message: MessageCreate, db: Session = Depends(get_
         if not chat:
             raise HTTPException(status_code=404, detail="Chat not found")
 
-        # Create new message
+        # If message ID is provided, update existing message
+        if message.id is not None:
+            existing_message = db.query(MessageDB).filter(
+                MessageDB.id == message.id,
+                MessageDB.chat_id == chat_id
+            ).first()
+            
+            if existing_message:
+                existing_message.content = message.content
+                existing_message.regeneration_id = message.regeneration_id
+                db.commit()
+                db.refresh(existing_message)
+                
+                return {
+                    "id": str(existing_message.id),  # Convert to string for frontend
+                    "role": existing_message.role,
+                    "content": existing_message.content,
+                    "created_at": existing_message.created_at.isoformat(),
+                    "regeneration_id": existing_message.regeneration_id
+                }
+
+        # Create new message if no ID provided or message not found
         db_message = MessageDB(
-            id=int(message.id) if message.id else None,  # Use provided ID if available
             chat_id=chat_id,
             role=message.role,
             content=message.content,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
+            regeneration_id=message.regeneration_id
         )
         db.add(db_message)
         db.commit()
         db.refresh(db_message)
         
         return {
-            "id": db_message.id,
+            "id": str(db_message.id),  # Convert to string for frontend
             "role": db_message.role,
             "content": db_message.content,
-            "created_at": db_message.created_at.isoformat()
+            "created_at": db_message.created_at.isoformat(),
+            "regeneration_id": db_message.regeneration_id
         }
     except Exception as e:
         db.rollback()
-        logger.error(f"Error adding message: {str(e)}")
+        logger.error(f"Error adding/updating message: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/chats/{chat_id}")
