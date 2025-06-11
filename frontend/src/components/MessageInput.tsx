@@ -1,15 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ModelSelector from './ModelSelector';
 
 interface MessageInputProps {
   onSendMessage: (content: string) => void;
   disabled?: boolean;
   placeholder?: string;
+  selectedModel: string;
+  onModelChange: (model: string) => void;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
   onSendMessage,
   disabled = false,
   placeholder = 'Type a message...',
+  selectedModel,
+  onModelChange,
 }) => {
   const [message, setMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -46,7 +51,13 @@ const MessageInput: React.FC<MessageInputProps> = ({
   return (
     <form onSubmit={handleSubmit} className="p-4 border-t border-gray-700 bg-gray-800">
       <div className="flex items-end space-x-2">
-        <div className="flex-grow relative">
+        <div className="flex-1 flex items-end space-x-2">
+          <ModelSelector
+            selectedModel={selectedModel}
+            onModelChange={onModelChange}
+            disabled={disabled}
+            className="w-48"
+          />
           <textarea
             ref={textareaRef}
             value={message}
@@ -54,16 +65,16 @@ const MessageInput: React.FC<MessageInputProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}
-            className="input min-h-[2.5rem] max-h-32 py-2 pr-10 resize-none bg-gray-700 border-gray-600 text-white"
+            className="flex-1 min-h-[2.5rem] max-h-32 py-3 px-4 resize-none bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
             rows={1}
           />
         </div>
         <button
           type="submit"
           disabled={!message.trim() || disabled}
-          className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed h-10 flex-shrink-0"
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          <span>Send</span>
+          Send
         </button>
       </div>
     </form>

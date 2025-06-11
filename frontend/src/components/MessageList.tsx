@@ -19,25 +19,38 @@ const Message: React.FC<MessageProps & { isStreaming?: boolean }> = memo(({ mess
   }, [content, role]);
   
   return (
-    <div className={`flex ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
-      <div className={`chat-bubble-${role} ${isStreaming ? 'ring-2 ring-indigo-400' : ''} ${role === 'user' ? 'self-end' : 'self-start'}`}>
-        <div className="font-semibold text-sm mb-1">
+    <div className={`flex w-full ${role === 'user' ? 'justify-end' : 'justify-start'} mb-4`}>
+      <div 
+        className={`max-w-[85%] rounded-lg p-4 ${
+          role === 'user' 
+            ? 'bg-indigo-600 text-white ml-4' 
+            : 'bg-gray-700 text-gray-100 mr-4'
+        } ${isStreaming ? 'ring-2 ring-indigo-400' : ''}`}
+      >
+        <div className="font-semibold text-sm mb-2">
           {role === 'user' ? 'You' : role === 'assistant' ? 'Assistant' : 'System'}
         </div>
         <div className="prose prose-invert prose-sm max-w-none markdown-content">
           <ReactMarkdown components={{
-            // Ensure paragraphs render with proper spacing
-            p: ({ children }) => <p className="mb-4">{children}</p>,
-            // Add proper styling for headings
+            p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
             h1: ({ children }) => <h1 className="text-xl font-bold mt-6 mb-4">{children}</h1>,
             h2: ({ children }) => <h2 className="text-lg font-bold mt-5 mb-3">{children}</h2>,
             h3: ({ children }) => <h3 className="text-base font-bold mt-4 mb-2">{children}</h3>,
-            // Add styling for lists
             ul: ({ children }) => <ul className="list-disc pl-6 mb-4">{children}</ul>,
             ol: ({ children }) => <ol className="list-decimal pl-6 mb-4">{children}</ol>,
-            // Style code blocks
-            code: ({ children }) => <code className="bg-gray-700 px-1 py-0.5 rounded">{children}</code>,
-            pre: ({ children }) => <pre className="bg-gray-700 p-3 rounded my-4 overflow-x-auto">{children}</pre>,
+            code: ({ node, inline, className, children, ...props }) => {
+              const match = /language-(\w+)/.exec(className || '');
+              return !inline ? (
+                <CodeBlockWithCopy language={match?.[1]}>
+                  {String(children).replace(/\n$/, '')}
+                </CodeBlockWithCopy>
+              ) : (
+                <code className="bg-gray-800 px-1.5 py-0.5 rounded text-sm" {...props}>
+                  {children}
+                </code>
+              );
+            },
+            pre: ({ children }) => <>{children}</>,
           }}>
             {processedContent}
           </ReactMarkdown>
@@ -107,7 +120,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, loading = false, st
       {messages.map((message) => (
         <Message key={message.id} message={message} isStreaming={streamingMessageId === message.id} />
       ))}
-      {loading && (
+      {loading && !streamingMessageId && (
         <div className="chat-bubble-assistant">
           <div className="font-semibold text-sm mb-1">Assistant</div>
           <div className="flex space-x-2">
@@ -117,6 +130,42 @@ const MessageList: React.FC<MessageListProps> = ({ messages, loading = false, st
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+const CodeBlockWithCopy: React.FC<{ children: string; language?: string }> = ({ children, language }) => {
+  const [copied, setCopied] = useState(false);
+  const codeRef = useRef<HTMLPreElement>(null);
+
+  const handleCopy = () => {
+    if (codeRef.current) {
+      const code = codeRef.current.innerText;
+      navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    }
+  };
+
+  return (
+    <div className="relative group">
+      <pre 
+        ref={codeRef} 
+        className="bg-gray-800 p-4 rounded-lg my-4 overflow-x-auto text-sm"
+      >
+        {language && (
+          <div className="text-xs text-gray-400 mb-2">
+            {language}
+          </div>
+        )}
+        <code>{children}</code>
+      </pre>
+      <button
+        onClick={handleCopy}
+        className="absolute top-2 right-2 px-2 py-1 text-xs rounded bg-gray-700 text-gray-200 opacity-0 group-hover:opacity-100 hover:bg-gray-600 transition-all duration-200"
+      >
+        {copied ? 'Copied!' : 'Copy'}
+      </button>
     </div>
   );
 };

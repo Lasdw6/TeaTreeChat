@@ -1,12 +1,13 @@
 import './globals.css'
-import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import { Metadata } from 'next'
+import ClientLayout from './ClientLayout'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'T3 Chat Clone',
-  description: 'A high-performance T3 Chat clone built with FastAPI and Next.js',
+  title: 'T3 Chat App',
+  description: 'A modern chat application built with the T3 stack',
 }
 
 export default function RootLayout({
@@ -17,9 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
-        <main className="min-h-screen flex flex-col">
-          {children}
-        </main>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   )

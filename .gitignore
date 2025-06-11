@@ -24,12 +24,16 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.db
+*.sqlite3
+logs/
+backend/logs/
 
 # Node.js
 node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 .pnpm-debug.log
 .DS_Store
 .env.local
@@ -40,6 +44,7 @@ yarn-error.log
 out/
 dist/
 .vercel
+*.pem
 
 # IDE
 .idea/
@@ -48,3 +53,8 @@ dist/
 *.swo
 .env
 .env.local
+# Project specific
+backend/chat.db
+backend/chunks.json
+backend/logs/chunks.txt
+frontend/.next/

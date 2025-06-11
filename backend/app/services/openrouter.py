@@ -149,7 +149,18 @@ async def generate_chat_completion(chat_request: ChatRequest) -> AsyncGenerator[
                         if chunk_count <= 2 or chunk_count % 50 == 0:
                             logger.info(f"Chunk {chunk_count}: {json.dumps(processed_chunk)[:100]}...")
                         
-                        yield processed_chunk
+                        # Format the chunk to match the expected response format
+                        formatted_chunk = {
+                            "id": chunk.get("id", ""),
+                            "model": chat_request.model,
+                            "choices": [{
+                                "message": {
+                                    "content": chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                                }
+                            }]
+                        }
+                        
+                        yield formatted_chunk
                     except json.JSONDecodeError:
                         logger.error(f"Failed to parse line: {line}")
                         continue

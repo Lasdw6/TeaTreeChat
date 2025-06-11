@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status, Query, Body
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
+from fastapi.middleware.cors import CORSMiddleware
 import json
 import asyncio
 import logging
@@ -11,12 +12,71 @@ import sys
 import shutil
 import stat
 from datetime import datetime
-from typing import List, Dict, Any
-from ...models.chat import Message, ChatRequest, ChatResponse
+from typing import List, Dict, Any, Optional
+from ...models.chat import Message, ChatRequest, ChatResponse, Chat, MessageDB, User
 from ...services.openrouter import generate_chat_completion
+from sqlalchemy.orm import Session
+from ...core.database import SessionLocal, get_db
+from pydantic import BaseModel
 
 router = APIRouter()
 logger = logging.getLogger("chat_router")
+
+# Pydantic models for request/response
+class ChatCreate(BaseModel):
+    title: str
+    user_id: int
+
+class MessageCreate(BaseModel):
+    id: Optional[str] = None
+    role: str
+    content: str
+
+class ChatResponse(BaseModel):
+    id: int
+    title: str
+    created_at: datetime
+    message_count: int
+    last_message: str | None
+
+class ChatDetail(BaseModel):
+    id: int
+    title: str
+    created_at: datetime
+    messages: List[dict]
+    user: str
+
+# Available models
+AVAILABLE_MODELS = [
+    {
+        "id": "meta-llama/llama-3.3-8b-instruct:free",
+        "name": "Llama 3.3 8B",
+        "description": "Meta's Llama 3.3 8B parameter model"
+    },
+    {
+        "id": "meta-llama/llama-3.3-70b-instruct:free",
+        "name": "Llama 3.3 70B",
+        "description": "Meta's Llama 3.3 70B parameter model"
+    },
+    {
+        "id": "anthropic/claude-3-opus:beta",
+        "name": "Claude 3 Opus",
+        "description": "Anthropic's most powerful model"
+    },
+    {
+        "id": "anthropic/claude-3-sonnet:beta",
+        "name": "Claude 3 Sonnet",
+        "description": "Anthropic's balanced model"
+    }
+]
+
+# Dependency for DB session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # Calculate project root (backend) by going three levels up from this file
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -319,16 +379,34 @@ async def chat_completion(request: ChatRequest):
             full_response = ""
             async for chunk in generate_chat_completion(request):
                 if "choices" in chunk and chunk["choices"]:
-                    if "message" in chunk["choices"][0]:
+                    if "delta" in chunk["choices"][0] and "content" in chunk["choices"][0]["delta"]:
+                        full_response += chunk["choices"][0]["delta"]["content"]
+                    elif "message" in chunk["choices"][0] and "content" in chunk["choices"][0]["message"]:
                         full_response = chunk["choices"][0]["message"]["content"]
             
-            return ChatResponse(
-                id=request.messages[-1].id if request.messages else "chat-response",
-                model=request.model,
-                content=full_response
-            )
+            logger.info(f"Full response: {full_response}")  # Debug log
+            
+            response = {
+                "id": f"chatcmpl-{int(datetime.now().timestamp())}",
+                "object": "chat.completion",
+                "created": int(datetime.now().timestamp()),
+                "model": request.model,
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": full_response
+                    },
+                    "finish_reason": "stop"
+                }]
+            }
+            
+            logger.info(f"Response format: {json.dumps(response, indent=2)}")  # Debug log
+            return response
+            
     except Exception as e:
         logger.error(f"Error in chat completion: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")  # Add traceback
         raise HTTPException(status_code=500, detail=str(e))
 
 async def stream_chat_completion(request: ChatRequest):
@@ -338,97 +416,213 @@ async def stream_chat_completion(request: ChatRequest):
     try:
         # Generate a unique conversation ID
         conversation_id = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{id(request)}"
-        print(f"Starting conversation: {conversation_id} with model: {request.model}")
+        logger.info(f"Starting conversation: {conversation_id} with model: {request.model}")
         
-        tracker = DuplicateContentTracker()
         chunk_count = 0
         
-        # Clear the log files for a new conversation
         try:
-            log_header = (
-                f"NEW CONVERSATION STARTED AT {datetime.now().isoformat()}\n"
-                f"Conversation ID: {conversation_id}\n"
-                f"Model: {request.model}\n"
-                f"Messages: {len(request.messages)}\n"
-                f"{'-' * 80}\n"
-            )
-            
-            # Write to both log files
-            for log_path in [CHUNK_LOG_PATH, BACKUP_LOG_PATH]:
-                with open(log_path, "w", encoding="utf-8") as f:
-                    f.write(log_header)
-                    f.flush()
+            async for chunk in generate_chat_completion(request):
+                chunk_count += 1
+
+                # Skip empty chunks
+                if not chunk or not chunk.get("choices", []):
+                    continue
                     
-            # Reset JSON log
-            with open(JSON_LOG_PATH, "w", encoding="utf-8") as f:
-                f.write("[]")
+                choice = chunk["choices"][0]
+                content = ""
                 
-            print(f"Created new log files for conversation: {conversation_id}")
-        except Exception as e:
-            print(f"Error creating log files: {str(e)}")
-            traceback.print_exc()
-        
-        async for chunk in generate_chat_completion(request):
-            chunk_count += 1
-
-            # Log raw chunk using Python logger
-            try:
-                logger.info(json.dumps(chunk))
-            except Exception as log_exc:
-                print(f"Logger failed to write chunk: {log_exc}")
-
-            # Log every chunk before processing - this happens regardless of processing
-            log_chunk(chunk, chunk_count, conversation_id)
-            
-            # Process the chunk to remove duplicates
-            processed_chunk = tracker.process_chunk(chunk)
-            
-            # Skip empty chunks
-            if not processed_chunk or not processed_chunk.get("choices", []):
-                continue
+                # Extract content from either delta or message
+                if "delta" in choice and "content" in choice["delta"]:
+                    content = choice["delta"]["content"]
+                elif "message" in choice and "content" in choice["message"]:
+                    content = choice["message"]["content"]
                 
-            choice = processed_chunk["choices"][0]
-            if "delta" not in choice or "content" not in choice["delta"] or not choice["delta"]["content"]:
-                continue
+                if not content:
+                    continue
                 
-            content = choice["delta"]["content"]
-            
-            # Only yield non-empty content
-            if content:
+                # Send just the content chunk
                 yield {
                     "event": "message",
                     "data": json.dumps({
-                        "id": processed_chunk.get("id", ""),
-                        "model": request.model,
-                        "content": content,
+                        "content": content
                     })
                 }
+                
+                # Small delay to avoid overwhelming the client
+                await asyncio.sleep(0.01)
             
-            # Small delay to avoid overwhelming the client
-            await asyncio.sleep(0.01)
+            # Send completion event
+            yield {
+                "event": "done",
+                "data": json.dumps({"status": "complete"})
+            }
             
-        # Send a completion event
-        yield {
-            "event": "done",
-            "data": json.dumps({"status": "complete"})
-        }
-        
-        # Log completion
-        print(f"Conversation {conversation_id} completed with {chunk_count} chunks")
+            logger.info(f"Conversation {conversation_id} completed with {chunk_count} chunks")
+                
+        except asyncio.CancelledError:
+            logger.info(f"Conversation {conversation_id} was cancelled")
+            yield {
+                "event": "error",
+                "data": json.dumps({
+                    "error": "Request was cancelled"
+                })
+            }
+            return
             
     except Exception as e:
         error_msg = f"Error in stream_chat_completion: {str(e)}"
         logger.error(error_msg)
-        traceback.print_exc()
+        logger.error(f"Traceback: {traceback.format_exc()}")
         
-        # Try to log the error
-        try:
-            with open(os.path.join(LOGS_DIR, "stream_errors.txt"), "a", encoding="utf-8") as f:
-                f.write(f"\n[{datetime.now().isoformat()}] {error_msg}\n")
-                f.write(traceback.format_exc())
-                f.write("-" * 80 + "\n")
-        except:
-            pass
+        yield {
+            "event": "error",
+            "data": json.dumps({
+                "error": str(e)
+            })
+        }
+
+@router.post("/chats/", response_model=ChatResponse)
+def create_chat(chat: ChatCreate, db: Session = Depends(get_db)):
+    try:
+        # Check if user exists
+        user = db.query(User).filter(User.id == chat.user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Create new chat
+        db_chat = Chat(
+            title=chat.title,
+            user_id=chat.user_id
+        )
+        db.add(db_chat)
+        db.commit()
+        db.refresh(db_chat)
+        
+        return ChatResponse(
+            id=db_chat.id,
+            title=db_chat.title,
+            created_at=db_chat.created_at,
+            message_count=0,
+            last_message=None
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/chats/", response_model=List[ChatResponse])
+def get_chats(user_id: int = Query(None), db: Session = Depends(get_db)):
+    try:
+        query = db.query(Chat)
+        if user_id is not None:
+            query = query.filter(Chat.user_id == user_id)
+        chats = query.all()
+        
+        return [
+            ChatResponse(
+                id=chat.id,
+                title=chat.title,
+                created_at=chat.created_at,
+                message_count=len(chat.messages),
+                last_message=chat.messages[-1].content if chat.messages else None
+            )
+            for chat in chats
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/chats/{chat_id}", response_model=ChatDetail)
+def get_chat(chat_id: int, db: Session = Depends(get_db)):
+    try:
+        chat = db.query(Chat).filter(Chat.id == chat_id).first()
+        if not chat:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        
+        return ChatDetail(
+            id=chat.id,
+            title=chat.title,
+            created_at=chat.created_at,
+            messages=[
+                {
+                    "id": msg.id,
+                    "role": msg.role,
+                    "content": msg.content,
+                    "created_at": msg.created_at
+                }
+                for msg in chat.messages
+            ],
+            user=chat.user.name
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/chats/{chat_id}/messages", response_model=dict)
+def add_message(chat_id: int, message: MessageCreate, db: Session = Depends(get_db)):
+    try:
+        # Check if chat exists
+        chat = db.query(Chat).filter(Chat.id == chat_id).first()
+        if not chat:
+            raise HTTPException(status_code=404, detail="Chat not found")
+
+        # Create new message
+        db_message = MessageDB(
+            id=int(message.id) if message.id else None,  # Use provided ID if available
+            chat_id=chat_id,
+            role=message.role,
+            content=message.content,
+            created_at=datetime.utcnow()
+        )
+        db.add(db_message)
+        db.commit()
+        db.refresh(db_message)
+        
+        return {
+            "id": db_message.id,
+            "role": db_message.role,
+            "content": db_message.content,
+            "created_at": db_message.created_at.isoformat()
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error adding message: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/chats/{chat_id}")
+def delete_chat(chat_id: int, db: Session = Depends(get_db)):
+    try:
+        chat = db.query(Chat).filter(Chat.id == chat_id).first()
+        if not chat:
+            raise HTTPException(status_code=404, detail="Chat not found")
+        
+        db.delete(chat)
+        db.commit()
+        return {"message": "Chat deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/chats/{chat_id}/messages", response_model=List[dict])
+def get_chat_messages(chat_id: int, db: Session = Depends(get_db)):
+    try:
+        chat = db.query(Chat).filter(Chat.id == chat_id).first()
+        if not chat:
+            raise HTTPException(status_code=404, detail="Chat not found")
             
-        error_data = json.dumps({"error": str(e)})
-        yield {"event": "error", "data": error_data} 
+        messages = db.query(MessageDB).filter(MessageDB.chat_id == chat_id).order_by(MessageDB.created_at).all()
+        return [
+            {
+                "id": msg.id,
+                "role": msg.role,
+                "content": msg.content,
+                "created_at": msg.created_at.isoformat()
+            }
+            for msg in messages
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/models")
+async def get_models():
+    """
+    Get list of available models
+    """
+    return {"models": AVAILABLE_MODELS} 

@@ -58,4 +58,19 @@ export interface Model {
   id: string;
   name: string;
   description: string;
+}
+
+export interface Chat {
+  id: number;
+  title: string;
+  created_at: string;
+  message_count: number;
+  last_message: string | null;
+}
+
+export interface Message {
+  id: number;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
 } 

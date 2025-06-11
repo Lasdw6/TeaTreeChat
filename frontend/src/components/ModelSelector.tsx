@@ -6,12 +6,14 @@ interface ModelSelectorProps {
   selectedModel: string;
   onModelChange: (modelId: string) => void;
   disabled?: boolean;
+  className?: string;
 }
 
 const ModelSelector: React.FC<ModelSelectorProps> = ({
   selectedModel,
   onModelChange,
   disabled = false,
+  className = '',
 }) => {
   const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,34 +58,27 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   const showLoading = isMounted && loading;
   
   return (
-    <div className="p-4 border-b border-gray-700 bg-gray-800">
-      <div className="flex items-center">
-        <label htmlFor="model-selector" className="mr-2 text-sm font-medium text-gray-300">
-          Model:
-        </label>
-        <select
-          id="model-selector"
-          value={selectedModel}
-          onChange={handleModelChange}
-          disabled={disabled || showLoading}
-          className="input py-1 px-2 text-sm bg-gray-700 border-gray-600 text-white"
-        >
-          {showLoading ? (
-            <option>Loading models...</option>
-          ) : error ? (
-            <option>Error loading models</option>
-          ) : models.length === 0 ? (
-            <option value={selectedModel}>{selectedModel.split('/').pop()}</option>
-          ) : (
-            models.map((model) => (
-              <option key={model.id} value={model.id}>
-                {model.name}
-              </option>
-            ))
-          )}
-        </select>
-      </div>
-    </div>
+    <select
+      id="model-selector"
+      value={selectedModel}
+      onChange={handleModelChange}
+      disabled={disabled || showLoading}
+      className={`py-1 px-2 text-sm bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${className}`}
+    >
+      {showLoading ? (
+        <option>Loading models...</option>
+      ) : error ? (
+        <option>Error loading models</option>
+      ) : models.length === 0 ? (
+        <option value={selectedModel}>{selectedModel.split('/').pop()}</option>
+      ) : (
+        models.map((model) => (
+          <option key={model.id} value={model.id}>
+            {model.name}
+          </option>
+        ))
+      )}
+    </select>
   );
 };
 

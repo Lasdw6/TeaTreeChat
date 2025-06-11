@@ -1,117 +1,113 @@
-# T3 Chat Clone
+# Chat Application
 
-An open-source clone of T3 chat built with FastAPI (backend) and Next.js (frontend) for high performance.
+A modern chat application built with Next.js, FastAPI, and OpenRouter AI.
 
 ## Features
 
 - Real-time chat interface
-- Message streaming from AI models
-- Fast and responsive UI
-- Integration with OpenRouter for AI model access
-- Support for Meta's Llama 3.3 8B Instruct model (free tier)
+- Multiple AI model support
+- Message history
+- Conversation management
+- Streaming responses
+- Modern UI with Tailwind CSS
 
-## Tech Stack
+## Prerequisites
+
+- Python 3.8+
+- Node.js 16+
+- OpenRouter API key (get one at https://openrouter.ai/)
+
+## Setup
 
 ### Backend
 
-- FastAPI - High-performance Python framework
-- Pydantic - Data validation
-- Uvicorn - ASGI server
-- OpenRouter API - AI model integration
+1. Navigate to the backend directory:
+
+   ```bash
+   cd backend
+   ```
+
+2. Create a virtual environment:
+
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. Install dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Create a `.env` file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Then edit `.env` with your configuration.
+
+5. Start the backend server:
+   ```bash
+   uvicorn main:app --reload
+   ```
 
 ### Frontend
 
-- Next.js 15+ - React framework with TypeScript
-- React - UI library
-- Tailwind CSS - Utility-first CSS framework
+1. Navigate to the frontend directory:
+
+   ```bash
+   cd frontend
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+3. Start the development server:
+
+   ```bash
+   npm run dev
+   ```
+
+4. Open http://localhost:3000 in your browser
+
+## Development
+
+- Backend API runs on http://localhost:8000
+- Frontend development server runs on http://localhost:3000
+- API documentation available at http://localhost:8000/docs
 
 ## Project Structure
 
 ```
-T3/
-├── backend/              # FastAPI server
+.
+├── backend/
 │   ├── app/
-│   │   ├── api/          # API routes
-│   │   ├── core/         # Core functionality
-│   │   ├── models/       # Data models
-│   │   └── services/     # Business logic
-│   ├── requirements.txt  # Python dependencies
-│   └── main.py           # Entry point
-├── frontend/             # Next.js app
-│   ├── public/           # Static files
-│   ├── src/              # Source code
-│   ├── package.json      # JS dependencies
-│   └── tsconfig.json     # TS configuration
-├── start_all.bat         # Script to start both services
-└── README.md             # Project documentation
+│   │   ├── api/
+│   │   ├── models/
+│   │   └── services/
+│   ├── main.py
+│   └── requirements.txt
+└── frontend/
+    ├── src/
+    │   ├── components/
+    │   ├── pages/
+    │   └── types/
+    └── package.json
 ```
 
-## Setup and Installation
+## Contributing
 
-### Prerequisites
-
-- Python 3.10+
-- Node.js 18+
-- npm or yarn
-- OpenRouter API key
-
-### Backend Setup
-
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### Frontend Setup
-
-```bash
-cd frontend
-npm install
-```
-
-### Environment Variables
-
-Create a `.env` file in the backend directory with:
-
-```
-OPENROUTER_API_KEY=your_api_key_here
-```
-
-## Running the Application
-
-You can start both services with:
-
-```bash
-./start_all.bat  # On Windows
-```
-
-Or individually:
-
-### Backend
-
-```bash
-cd backend
-uvicorn app.main:app --reload
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm run dev
-```
-
-## Supported Models
-
-This clone supports a variety of AI models through OpenRouter:
-
-- OpenAI GPT-3.5 Turbo
-- OpenAI GPT-4
-- Anthropic Claude 3 (Opus, Sonnet, Haiku)
-- **Meta Llama 3.3 8B Instruct** (free tier)
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
-MIT
+This project is licensed under the MIT License - see the LICENSE file for details.
