@@ -12,9 +12,10 @@ interface MessageProps {
   isStreaming?: boolean;
   onRegenerate?: (messageId: string, model?: string) => void;
   availableModels?: Model[];
+  onFork?: (messageId: string) => void;
 }
 
-const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegenerate, availableModels = [] }) => {
+const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegenerate, availableModels = [], onFork }) => {
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -131,6 +132,34 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
                   </IconButton>
                 </span>
               </Tooltip>
+              <Tooltip title="Fork chat from here">
+                <IconButton
+                  onClick={() => onFork?.(message.id.toString())}
+                  size="small"
+                  sx={{
+                    color: '#9ca3af',
+                    '&:hover': {
+                      color: 'white',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    },
+                    transition: 'all 0.2s ease-in-out',
+                  }}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 2v20M2 12h20" />
+                  </svg>
+                </IconButton>
+              </Tooltip>
               <Menu
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
@@ -198,6 +227,7 @@ interface MessageListProps {
   loading?: boolean;
   streamingMessageId?: string;
   onRegenerate?: (messageId: string, model?: string) => void;
+  onFork?: (messageId: string) => void;
 }
 
 const MessageList: React.FC<MessageListProps> = ({
@@ -205,6 +235,7 @@ const MessageList: React.FC<MessageListProps> = ({
   loading,
   streamingMessageId,
   onRegenerate,
+  onFork,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [models, setModels] = useState<Model[]>([]);
@@ -248,6 +279,7 @@ const MessageList: React.FC<MessageListProps> = ({
           isStreaming={message.id === streamingMessageId}
           onRegenerate={onRegenerate}
           availableModels={models}
+          onFork={onFork}
         />
       ))}
       {loading && !streamingMessageId && (

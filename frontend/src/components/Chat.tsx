@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ChatList from './ChatList';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
+import { useRouter } from 'next/navigation';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const DEFAULT_USER_ID = 1;
@@ -26,10 +27,12 @@ interface Chat {
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
+  const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [shouldRefreshChats, setShouldRefreshChats] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | undefined>(undefined);
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
+  const router = useRouter();
 
   useEffect(() => {
     if (selectedChatId) {
@@ -52,6 +55,13 @@ export default function Chat() {
       );
 
       setMessages(data);
+
+      // Fetch chat details
+      const chatResponse = await fetch(`${API_BASE_URL}/chats/${chatId}`);
+      if (chatResponse.ok) {
+        const chatData = await chatResponse.json();
+        setSelectedChat(chatData);
+      }
     } catch (error) {
       console.error('Error fetching chat messages:', error);
     } finally {
@@ -426,6 +436,62 @@ export default function Chat() {
     }
   };
 
+  const handleFork = async (messageId: string) => {
+    if (!selectedChatId) return;
+
+    try {
+      // Create a new chat
+      const newChatResponse = await fetch(`${API_BASE_URL}/chats`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: `Fork of ${selectedChat?.title || 'Chat'}`,
+          model: selectedModel,
+          user_id: DEFAULT_USER_ID
+        }),
+      });
+
+      if (!newChatResponse.ok) {
+        const errorData = await newChatResponse.json().catch(() => ({}));
+        throw new Error(errorData.detail || "Failed to create new chat");
+      }
+
+      const newChat = await newChatResponse.json();
+
+      // Get all messages up to the fork point
+      const messagesToCopy = messages.slice(0, messages.findIndex(msg => msg.id.toString() === messageId) + 1);
+
+      // Copy messages to the new chat
+      for (const message of messagesToCopy) {
+        const messageResponse = await fetch(`${API_BASE_URL}/chats/${newChat.id}/messages`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            role: message.role,
+            content: message.content,
+            chat_id: newChat.id,
+            user_id: DEFAULT_USER_ID
+          }),
+        });
+
+        if (!messageResponse.ok) {
+          throw new Error("Failed to copy message to new chat");
+        }
+      }
+
+      // Select the new chat
+      setSelectedChatId(newChat.id);
+      // Refresh chat list
+      setShouldRefreshChats(true);
+    } catch (error) {
+      console.error("Error forking chat:", error);
+    }
+  };
+
   const onChatListRefresh = () => {
     setShouldRefreshChats(false);
   };
@@ -454,6 +520,7 @@ export default function Chat() {
               loading={isLoading}
               streamingMessageId={streamingMessageId}
               onRegenerate={handleRegenerate}
+              onFork={handleFork}
             />
             <MessageInput
               onSendMessage={handleSend}
