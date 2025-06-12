@@ -572,13 +572,15 @@ def add_message(chat_id: int, message: MessageCreate, db: Session = Depends(get_
             ).first()
             
             if existing_message:
+                # Update the existing message
                 existing_message.content = message.content
                 existing_message.regeneration_id = message.regeneration_id
+                existing_message.created_at = datetime.utcnow()  # Update timestamp
                 db.commit()
                 db.refresh(existing_message)
                 
                 return {
-                    "id": str(existing_message.id),  # Convert to string for frontend
+                    "id": str(existing_message.id),
                     "role": existing_message.role,
                     "content": existing_message.content,
                     "created_at": existing_message.created_at.isoformat(),
@@ -598,7 +600,7 @@ def add_message(chat_id: int, message: MessageCreate, db: Session = Depends(get_
         db.refresh(db_message)
         
         return {
-            "id": str(db_message.id),  # Convert to string for frontend
+            "id": str(db_message.id),
             "role": db_message.role,
             "content": db_message.content,
             "created_at": db_message.created_at.isoformat(),
@@ -648,4 +650,34 @@ async def get_models():
     """
     Get list of available models
     """
-    return {"models": AVAILABLE_MODELS} 
+    return {"models": AVAILABLE_MODELS}
+
+@router.delete("/chats/{chat_id}/messages/regenerate/{message_id}")
+def delete_messages_after_regeneration(chat_id: int, message_id: int, db: Session = Depends(get_db)):
+    try:
+        # Check if chat exists
+        chat = db.query(Chat).filter(Chat.id == chat_id).first()
+        if not chat:
+            raise HTTPException(status_code=404, detail="Chat not found")
+
+        # Find the message to regenerate
+        message = db.query(MessageDB).filter(
+            MessageDB.id == message_id,
+            MessageDB.chat_id == chat_id
+        ).first()
+        
+        if not message:
+            raise HTTPException(status_code=404, detail="Message not found")
+
+        # Delete the message being regenerated and all messages after it
+        db.query(MessageDB).filter(
+            MessageDB.chat_id == chat_id,
+            MessageDB.id >= message_id  # Changed from > to >= to include the message itself
+        ).delete()
+
+        db.commit()
+        return {"status": "success", "message": "Messages deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting messages: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e)) 

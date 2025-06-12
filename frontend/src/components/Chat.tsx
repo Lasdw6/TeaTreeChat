@@ -12,13 +12,7 @@ interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   created_at: string;
-  regeneration_id?: string;
-}
-
-interface RegeneratedMessageGroup {
-  originalId: string;
-  messages: Message[];
-  currentIndex: number;
+  chat_id: number;
 }
 
 interface Chat {
@@ -36,115 +30,12 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | undefined>(undefined);
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
-  const [regeneratedGroups, setRegeneratedGroups] = useState<Record<string, RegeneratedMessageGroup>>({});
-  const [messageGroups, setMessageGroups] = useState<Message[][]>([]);
-  const [activeMessageGroups, setActiveMessageGroups] = useState<Record<string, number>>({});
-
-  // Group consecutive assistant messages
-  useEffect(() => {
-    const groups = messages.reduce((groups: Message[][], message, index) => {
-      if (index === 0 || message.role !== 'assistant' || messages[index - 1].role !== 'assistant') {
-        groups.push([message]);
-      } else {
-        groups[groups.length - 1].push(message);
-      }
-      return groups;
-    }, []);
-
-    // Only update if the groups have actually changed
-    if (JSON.stringify(groups) !== JSON.stringify(messageGroups)) {
-      setMessageGroups(groups);
-      
-      // Initialize active message indices for each group
-      const newActiveGroups: Record<string, number> = {};
-      groups.forEach((group, groupIndex) => {
-        if (group.length > 1 && group[0].role === 'assistant') {
-          newActiveGroups[`group-${groupIndex}`] = group.length - 1; // Start with the latest message
-        }
-      });
-      setActiveMessageGroups(newActiveGroups);
-    }
-  }, [messages]);
-
-  const handleSwitchMessage = (groupIndex: number, direction: 'prev' | 'next') => {
-    console.log('Switching message:', { groupIndex, direction });
-    console.log('Current messageGroups:', messageGroups);
-    
-    const group = messageGroups[groupIndex];
-    console.log('Selected group:', group);
-    
-    if (!group || group.length <= 1) {
-      console.log('No group or single message, returning');
-      return;
-    }
-
-    const originalMessage = group[0];
-    console.log('Original message:', originalMessage);
-    
-    // Create a regeneration_id for this group if it doesn't exist
-    const regenerationId = originalMessage.regeneration_id || `group-${groupIndex}`;
-    console.log('Regeneration ID:', regenerationId);
-    
-    // Get or create the regenerated group
-    let regeneratedGroup = regeneratedGroups[regenerationId];
-    if (!regeneratedGroup) {
-      regeneratedGroup = {
-        originalId: regenerationId,
-        messages: group,
-        currentIndex: group.length - 1
-      };
-      setRegeneratedGroups(prev => ({
-        ...prev,
-        [regenerationId]: regeneratedGroup
-      }));
-    }
-    
-    console.log('Regenerated group:', regeneratedGroup);
-
-    const newIndex = direction === 'prev' 
-      ? Math.max(0, regeneratedGroup.currentIndex - 1)
-      : Math.min(regeneratedGroup.messages.length - 1, regeneratedGroup.currentIndex + 1);
-    
-    console.log('New index:', newIndex);
-
-    // Update the regenerated group's current index
-    setRegeneratedGroups(prev => {
-      const updated = {
-        ...prev,
-        [regenerationId]: {
-          ...regeneratedGroup,
-          currentIndex: newIndex
-        }
-      };
-      console.log('Updated regenerated groups:', updated);
-      return updated;
-    });
-
-    // Update the visible message
-    setMessages(prev => {
-      const updated = prev.map(msg => {
-        if (msg.id === originalMessage.id) {
-          const newMessage = regeneratedGroup.messages[newIndex];
-          console.log('Switching to message:', newMessage);
-          return {
-            ...msg,
-            content: newMessage.content,
-            created_at: newMessage.created_at
-          };
-        }
-        return msg;
-      });
-      console.log('Updated messages:', updated);
-      return updated;
-    });
-  };
 
   useEffect(() => {
     if (selectedChatId) {
       fetchChatMessages(selectedChatId);
     } else {
       setMessages([]);
-      setRegeneratedGroups({});
     }
   }, [selectedChatId]);
 
@@ -155,85 +46,12 @@ export default function Chat() {
       if (!response.ok) throw new Error('Failed to fetch chat messages');
       const data = await response.json();
       
-      // Group messages by regeneration_id
-      const messageGroups = data.reduce((groups: Record<string, Message[]>, msg: Message) => {
-        if (msg.regeneration_id) {
-          if (!groups[msg.regeneration_id]) {
-            groups[msg.regeneration_id] = [];
-          }
-          groups[msg.regeneration_id].push(msg);
-        } else {
-          // Messages without regeneration_id are shown as is
-          if (!groups['no_regeneration']) {
-            groups['no_regeneration'] = [];
-          }
-          groups['no_regeneration'].push(msg);
-        }
-        return groups;
-      }, {});
-
-      // For each group, only show the latest message initially
-      const visibleMessages = Object.values(messageGroups as Record<string, Message[]>).flatMap((group) => {
-        if (group[0]?.regeneration_id) {
-          // Sort by created_at to get the latest message
-          const sortedGroup = [...group].sort((a: Message, b: Message) => 
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-          return [sortedGroup[0]];
-        }
-        return group;
-      });
-
-      // Sort all messages by created_at
-      visibleMessages.sort((a: Message, b: Message) => 
+      // Sort messages by created_at
+      data.sort((a: Message, b: Message) => 
         new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       );
 
-      setMessages(visibleMessages);
-      
-      // Initialize regenerated groups with all versions of each message
-      const initialRegeneratedGroups: Record<string, RegeneratedMessageGroup> = {};
-      
-      // First, add groups with regeneration_id
-      Object.entries(messageGroups as Record<string, Message[]>).forEach(([regId, group]) => {
-        if (regId !== 'no_regeneration') {
-          // Sort messages by created_at
-          const sortedMessages = [...group].sort((a: Message, b: Message) => 
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          );
-          
-          initialRegeneratedGroups[regId] = {
-            originalId: regId,
-            messages: sortedMessages,
-            currentIndex: sortedMessages.length - 1 // Start with the latest message
-          };
-        }
-      });
-
-      // Then, create groups for consecutive assistant messages without regeneration_id
-      const assistantGroups = visibleMessages.reduce((groups: Message[][], message, index) => {
-        if (index === 0 || message.role !== 'assistant' || visibleMessages[index - 1].role !== 'assistant') {
-          groups.push([message]);
-        } else {
-          groups[groups.length - 1].push(message);
-        }
-        return groups;
-      }, []);
-
-      // Add groups with multiple assistant messages
-      assistantGroups.forEach((group, index) => {
-        if (group.length > 1 && group[0].role === 'assistant') {
-          const groupId = `group-${index}`;
-          initialRegeneratedGroups[groupId] = {
-            originalId: groupId,
-            messages: group,
-            currentIndex: group.length - 1
-          };
-        }
-      });
-      
-      console.log('Initializing regenerated groups:', initialRegeneratedGroups);
-      setRegeneratedGroups(initialRegeneratedGroups);
+      setMessages(data);
     } catch (error) {
       console.error('Error fetching chat messages:', error);
     } finally {
@@ -253,7 +71,8 @@ export default function Chat() {
         id: Date.now().toString(),
         role: "user",
         content: message,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        chat_id: selectedChatId
       };
 
       // Add user message to chat
@@ -285,7 +104,8 @@ export default function Chat() {
         id: tempMessageId,
         role: "assistant",
         content: "",
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        chat_id: selectedChatId
       };
       setMessages(prev => [...prev, tempMessage]);
 
@@ -320,35 +140,71 @@ export default function Chat() {
 
       let accumulatedContent = "";
       const decoder = new TextDecoder();
+      let lastChunkTimeout: NodeJS.Timeout | undefined;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      const updateMessage = (content: string) => {
+        setMessages(prevMessages => {
+          const updatedMessages = prevMessages.map(msg => {
+            if (msg.id.toString() === tempMessageId) {
+              return { ...msg, content };
+            }
+            return msg;
+          });
+          return updatedMessages;
+        });
+      };
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n').filter(line => line.trim() !== '');
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') continue;
-
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.content) {
-                accumulatedContent += parsed.content;
-                setMessages(prev => prev.map(msg => 
-                  msg.id === tempMessageId 
-                    ? { ...msg, content: accumulatedContent }
-                    : msg
-                ));
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') {
+                // Clear any existing timeout
+                if (lastChunkTimeout) {
+                  clearTimeout(lastChunkTimeout);
+                }
+                // Set a timeout to ensure we get any delayed chunks
+                lastChunkTimeout = setTimeout(() => {
+                  updateMessage(accumulatedContent);
+                }, 500);
+                break;
               }
-            } catch (e) {
-              console.error("Error parsing chunk:", e);
+
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.content) {
+                  accumulatedContent += parsed.content;
+                  updateMessage(accumulatedContent);
+                }
+              } catch (e) {
+                console.error("Error parsing chunk:", e);
+              }
             }
           }
-        }
 
+          if (done) {
+            // Clear any existing timeout
+            if (lastChunkTimeout) {
+              clearTimeout(lastChunkTimeout);
+            }
+            // Final update to ensure we have the complete content
+            updateMessage(accumulatedContent);
+            break;
+          }
+        }
+      } finally {
+        // Clean up timeout
+        if (lastChunkTimeout) {
+          clearTimeout(lastChunkTimeout);
+        }
+        // One final update to ensure we have everything
+        updateMessage(accumulatedContent);
       }
 
       // Update the existing message instead of creating a new one
@@ -360,7 +216,7 @@ export default function Chat() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            id: tempMessageId,  // Use the same ID
+            id: parseInt(tempMessageId),  // Use the same ID
             role: "assistant",
             content: accumulatedContent,
           }),
@@ -388,11 +244,10 @@ export default function Chat() {
     }
   };
 
-  const handleRegenerate = async (messageId: string) => {
+  const handleRegenerate = async (messageId: string, model?: string) => {
     if (!selectedChatId) return;
 
     setIsLoading(true);
-    let newMessageId: string;
 
     // Find the message to regenerate and all messages before it
     const messageIndex = messages.findIndex(msg => msg.id.toString() === messageId);
@@ -404,37 +259,39 @@ export default function Chat() {
     
     if (!lastUserMessage) return;
 
-    // Get the original message to regenerate
-    const originalMessage = messages[messageIndex];
-
     try {
-      // Create a new message for regeneration
-      newMessageId = Date.now().toString();
-      const newMessage: Message = {
-        id: newMessageId,
-        role: "assistant",
-        content: "",
-        created_at: new Date().toISOString()
-      };
+      // Start deletion in parallel with streaming
+      const deletePromise = fetch(
+        `${API_BASE_URL}/chats/${selectedChatId}/messages/regenerate/${messageId}`,
+        {
+          method: "DELETE",
+        }
+      );
 
-      // Add the new message to the messages array
-      setMessages(prev => {
-        const updated = [...prev];
-        updated[messageIndex] = newMessage;
-        return updated;
-      });
+      // Update UI immediately to remove the current message and all messages after it
+      setMessages(messagesToKeep);
 
       // Set streaming state
-      setStreamingMessageId(newMessageId);
+      setStreamingMessageId(messageId);
 
-      // Get AI response with streaming
+      // Create a temporary message for streaming
+      const tempMessage: Message = {
+        id: messageId,
+        role: "assistant",
+        content: "",
+        created_at: new Date().toISOString(),
+        chat_id: selectedChatId
+      };
+      setMessages(prev => [...prev, tempMessage]);
+
+      // Start streaming in parallel with deletion
       const aiResponse = await fetch(`${API_BASE_URL}/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: selectedModel,
+          model: model || selectedModel,
           messages: [...messagesToKeep, lastUserMessage].map(msg => ({
             role: msg.role,
             content: msg.content
@@ -451,6 +308,12 @@ export default function Chat() {
         throw new Error(errorData.detail || "Failed to get AI response");
       }
 
+      // Wait for deletion to complete
+      const deleteResponse = await deletePromise;
+      if (!deleteResponse.ok) {
+        throw new Error("Failed to delete messages");
+      }
+
       const reader = aiResponse.body?.getReader();
       if (!reader) {
         throw new Error("Failed to get response reader");
@@ -458,55 +321,75 @@ export default function Chat() {
 
       let accumulatedContent = "";
       const decoder = new TextDecoder();
+      let lastChunkTimeout: NodeJS.Timeout | undefined;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      const updateMessage = (content: string) => {
+        setMessages(prevMessages => {
+          // Keep all messages up to the regeneration point
+          const messagesUpToRegeneration = prevMessages.slice(0, messageIndex);
+          // Add the streaming message
+          return [...messagesUpToRegeneration, {
+            id: messageId,
+            role: "assistant",
+            content: content,
+            created_at: new Date().toISOString(),
+            chat_id: selectedChatId
+          }];
+        });
+      };
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n').filter(line => line.trim() !== '');
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') continue;
-
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.content) {
-                accumulatedContent += parsed.content;
-                console.log('Streaming content:', accumulatedContent);
-                // Update the message content in real-time
-                setMessages(prev => prev.map(msg => 
-                  msg.id === newMessageId 
-                    ? { ...msg, content: accumulatedContent }
-                    : msg
-                ));
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') {
+                // Clear any existing timeout
+                if (lastChunkTimeout) {
+                  clearTimeout(lastChunkTimeout);
+                }
+                // Set a timeout to ensure we get any delayed chunks
+                lastChunkTimeout = setTimeout(() => {
+                  updateMessage(accumulatedContent);
+                }, 500);
+                break;
               }
-            } catch (e) {
-              console.error("Error parsing chunk:", e);
+
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.content) {
+                  accumulatedContent += parsed.content;
+                  updateMessage(accumulatedContent);
+                }
+              } catch (e) {
+                console.error("Error parsing chunk:", e);
+              }
             }
           }
-        }
-      }
 
-      // Update the regenerated groups
-      setRegeneratedGroups(prev => {
-        const existingGroup = prev[messageId] || {
-          originalId: messageId,
-          messages: [originalMessage],
-          currentIndex: 0
-        };
-
-        return {
-          ...prev,
-          [messageId]: {
-            ...existingGroup,
-            messages: [...existingGroup.messages, { ...newMessage, content: accumulatedContent }],
-            currentIndex: existingGroup.messages.length
+          if (done) {
+            // Clear any existing timeout
+            if (lastChunkTimeout) {
+              clearTimeout(lastChunkTimeout);
+            }
+            // Final update to ensure we have the complete content
+            updateMessage(accumulatedContent);
+            break;
           }
-        };
-      });
+        }
+      } finally {
+        // Clean up timeout
+        if (lastChunkTimeout) {
+          clearTimeout(lastChunkTimeout);
+        }
+        // One final update to ensure we have everything
+        updateMessage(accumulatedContent);
+      }
 
       // Update the message in the database
       const assistantResponse = await fetch(
@@ -517,9 +400,11 @@ export default function Chat() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            id: parseInt(newMessageId),
+            id: parseInt(messageId),
             role: "assistant",
-            content: accumulatedContent
+            content: accumulatedContent,
+            regeneration_id: model || selectedModel,
+            chat_id: selectedChatId
           }),
         }
       );
@@ -535,12 +420,6 @@ export default function Chat() {
       setShouldRefreshChats(true);
     } catch (error) {
       console.error("Error in regeneration:", error);
-      // Restore the original message if there was an error
-      setMessages(prev => prev.map(msg => 
-        msg.id === newMessageId 
-          ? originalMessage
-          : msg
-      ));
       setStreamingMessageId(undefined);
     } finally {
       setIsLoading(false);
@@ -575,9 +454,6 @@ export default function Chat() {
               loading={isLoading}
               streamingMessageId={streamingMessageId}
               onRegenerate={handleRegenerate}
-              activeMessageGroups={activeMessageGroups}
-              onSwitchMessage={handleSwitchMessage}
-              messageGroups={messageGroups}
             />
             <MessageInput
               onSendMessage={handleSend}

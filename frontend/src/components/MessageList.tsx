@@ -1,19 +1,23 @@
-import React, { useRef, useEffect, useState, memo } from 'react';
-import { Message as MessageType } from '@/types/chat';
+import React, { useRef, useEffect, useState } from 'react';
+import { Message as MessageType, Model } from '@/types/chat';
 import ReactMarkdown from 'react-markdown';
-import { Box, Typography, CircularProgress, IconButton, Tooltip } from '@mui/material';
+import { Box, Typography, CircularProgress, IconButton, Tooltip, Menu, MenuItem } from '@mui/material';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { ContentCopy as CopyIcon, Refresh as RefreshIcon, SwapHoriz as SwapIcon, ArrowBack as ArrowBackIcon, ArrowForward as ArrowForwardIcon } from '@mui/icons-material';
+import { ContentCopy as CopyIcon, Refresh as RefreshIcon, Check as CheckIcon } from '@mui/icons-material';
+import { getModels } from '@/lib/api';
 
 interface MessageProps {
   message: MessageType;
   isStreaming?: boolean;
-  onRegenerate?: (messageId: string) => void;
-  onSwitchRegeneration?: (messageId: string, regenerationId: string) => void;
+  onRegenerate?: (messageId: string, model?: string) => void;
+  availableModels?: Model[];
 }
 
-const Message: React.FC<MessageProps> = memo(({ message, isStreaming = false, onRegenerate, onSwitchRegeneration }) => {
+const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegenerate, availableModels = [] }) => {
+  const [copied, setCopied] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const processedContent = message.content.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, language, code) => {
     return `\`\`\`${language || ''}\n${code.trim()}\n\`\`\``;
   });
@@ -21,21 +25,28 @@ const Message: React.FC<MessageProps> = memo(({ message, isStreaming = false, on
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy message:', err);
     }
   };
 
-  const handleRegenerate = () => {
+  const handleRegenerate = (model?: string) => {
     if (onRegenerate) {
-      onRegenerate(message.id.toString());
+      setRegenerating(true);
+      onRegenerate(message.id.toString(), model);
+      setTimeout(() => setRegenerating(false), 2000);
     }
+    setAnchorEl(null);
   };
 
-  const handleSwitchRegeneration = () => {
-    if (onSwitchRegeneration && message.regeneration_id) {
-      onSwitchRegeneration(message.id, message.regeneration_id);
-    }
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
   };
 
   return (
@@ -69,7 +80,7 @@ const Message: React.FC<MessageProps> = memo(({ message, isStreaming = false, on
           </div>
           {message.role === 'assistant' && (
             <div className="flex justify-start mt-1 space-x-1">
-              <Tooltip title="Copy message">
+              <Tooltip title={copied ? "Copied!" : "Copy message"}>
                 <IconButton
                   onClick={handleCopy}
                   size="small"
@@ -79,17 +90,18 @@ const Message: React.FC<MessageProps> = memo(({ message, isStreaming = false, on
                       color: 'white',
                       backgroundColor: 'rgba(255, 255, 255, 0.1)',
                     },
+                    transition: 'all 0.2s ease-in-out',
                   }}
                 >
-                  <CopyIcon fontSize="small" />
+                  {copied ? <CheckIcon fontSize="small" /> : <CopyIcon fontSize="small" />}
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Regenerate response">
+              <Tooltip title={regenerating ? "Regenerating..." : "Regenerate response"}>
                 <span>
                   <IconButton
-                    onClick={handleRegenerate}
+                    onClick={handleMenuOpen}
                     size="small"
-                    disabled={isStreaming}
+                    disabled={isStreaming || regenerating}
                     sx={{
                       color: '#9ca3af',
                       '&:hover': {
@@ -99,170 +111,150 @@ const Message: React.FC<MessageProps> = memo(({ message, isStreaming = false, on
                       '&.Mui-disabled': {
                         color: '#4b5563',
                       },
+                      transition: 'all 0.2s ease-in-out',
                     }}
                   >
-                    <RefreshIcon fontSize="small" />
+                    <RefreshIcon 
+                      fontSize="small" 
+                      sx={{
+                        animation: regenerating ? 'spin 1s linear infinite' : 'none',
+                        '@keyframes spin': {
+                          '0%': {
+                            transform: 'rotate(0deg)',
+                          },
+                          '100%': {
+                            transform: 'rotate(360deg)',
+                          },
+                        },
+                      }}
+                    />
                   </IconButton>
                 </span>
               </Tooltip>
-              {message.regeneration_id && (
-                <Tooltip title="Switch to another regeneration">
-                  <IconButton
-                    onClick={handleSwitchRegeneration}
-                    size="small"
-                    sx={{
-                      color: '#9ca3af',
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+                anchorOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+                transformOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+                }}
+                PaperProps={{
+                  elevation: 3,
+                  sx: {
+                    bgcolor: '#1f2937',
+                    color: '#ffffff',
+                    mt: 1,
+                    minWidth: '200px',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    '& .MuiMenuItem-root': {
+                      fontSize: '0.875rem',
+                      py: 1.5,
+                      px: 2,
                       '&:hover': {
-                        color: 'white',
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        bgcolor: 'rgba(79, 70, 229, 0.1)',
                       },
-                    }}
-                  >
-                    <SwapIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
+                      '&:first-of-type': {
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                        mb: 0.5,
+                      },
+                    },
+                  },
+                }}
+              >
+                <MenuItem onClick={() => handleRegenerate()}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <RefreshIcon fontSize="small" sx={{ color: '#ffffff' }} />
+                    <Typography variant="body2" sx={{ color: '#ffffff' }}>Use current model</Typography>
+                  </Box>
+                </MenuItem>
+                {availableModels.map((model) => (
+                  <MenuItem key={model.id} onClick={() => handleRegenerate(model.id)}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 500, color: '#ffffff' }}>
+                        {model.name}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#9ca3af', mt: 0.5 }}>
+                        {model.description}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Menu>
             </div>
           )}
         </div>
       </div>
     </div>
   );
-});
+};
 
 interface MessageListProps {
   messages: MessageType[];
   loading?: boolean;
   streamingMessageId?: string;
-  onRegenerate?: (messageId: string) => void;
-  activeMessageGroups: Record<string, number>;
-  onSwitchMessage: (groupIndex: number, direction: 'prev' | 'next') => void;
-  messageGroups: MessageType[][];
+  onRegenerate?: (messageId: string, model?: string) => void;
 }
 
-const MessageList: React.FC<MessageListProps> = ({ 
-  messages, 
-  loading, 
-  streamingMessageId, 
-  onRegenerate, 
-  activeMessageGroups,
-  onSwitchMessage,
-  messageGroups
+const MessageList: React.FC<MessageListProps> = ({
+  messages,
+  loading,
+  streamingMessageId,
+  onRegenerate,
 }) => {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
-  const lastScrollHeightRef = useRef<number>(0);
+  const [models, setModels] = useState<Model[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Handle scroll events
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
-      setShouldAutoScroll(isAtBottom);
-    };
-
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
+    setIsMounted(true);
   }, []);
 
-  // Only auto-scroll for new messages, not streaming updates
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    if (!isMounted) return;
 
-    const currentScrollHeight = container.scrollHeight;
-    const isNewMessage = currentScrollHeight > lastScrollHeightRef.current;
-    lastScrollHeightRef.current = currentScrollHeight;
+    const fetchModels = async () => {
+      try {
+        const modelsList = await getModels();
+        setModels(modelsList);
+      } catch (err) {
+        console.error('Failed to load models:', err);
+      }
+    };
 
-    if (shouldAutoScroll && isNewMessage && !streamingMessageId) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    fetchModels();
+  }, [isMounted]);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [messages, shouldAutoScroll, streamingMessageId]);
-
-  if (loading && messages.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <CircularProgress />
-      </div>
-    );
-  }
+  }, [messages]);
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className="flex-1 overflow-y-auto p-4 space-y-4"
+      style={{ scrollbarWidth: 'thin', scrollbarColor: '#4B5563 #1F2937' }}
     >
-      {messageGroups.map((group, groupIndex) => {
-        if (group.length === 1 || group[0].role !== 'assistant') {
-          return group.map(message => (
-            <Message
-              key={message.id}
-              message={message}
-              isStreaming={message.id === streamingMessageId}
-              onRegenerate={onRegenerate}
-            />
-          ));
-        }
-
-        const activeIndex = activeMessageGroups[`group-${groupIndex}`] || group.length - 1;
-        const activeMessage = group[activeIndex];
-
-        return (
-          <div key={`group-${groupIndex}`}>
-            <Message
-              message={activeMessage}
-              isStreaming={activeMessage.id === streamingMessageId}
-              onRegenerate={onRegenerate}
-            />
-            {group.length > 1 && (
-              <div className="flex items-center justify-start ml-4 mt-1 space-x-2">
-                <IconButton
-                  onClick={() => onSwitchMessage(groupIndex, 'prev')}
-                  disabled={activeIndex === 0}
-                  size="small"
-                  sx={{
-                    color: '#9ca3af',
-                    '&:hover': {
-                      color: 'white',
-                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    },
-                    '&.Mui-disabled': {
-                      color: '#4b5563',
-                    },
-                  }}
-                >
-                  <ArrowBackIcon fontSize="small" />
-                </IconButton>
-                <Typography variant="caption" sx={{ color: '#9ca3af' }}>
-                  {activeIndex + 1} of {group.length}
-                </Typography>
-                <IconButton
-                  onClick={() => onSwitchMessage(groupIndex, 'next')}
-                  disabled={activeIndex === group.length - 1}
-                  size="small"
-                  sx={{
-                    color: '#9ca3af',
-                    '&:hover': {
-                      color: 'white',
-                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    },
-                    '&.Mui-disabled': {
-                      color: '#4b5563',
-                    },
-                  }}
-                >
-                  <ArrowForwardIcon fontSize="small" />
-                </IconButton>
-              </div>
-            )}
-          </div>
-        );
-      })}
-      <div ref={messagesEndRef} />
+      {messages.map((message) => (
+        <Message
+          key={message.id}
+          message={message}
+          isStreaming={message.id === streamingMessageId}
+          onRegenerate={onRegenerate}
+          availableModels={models}
+        />
+      ))}
+      {loading && !streamingMessageId && (
+        <div className="flex justify-center">
+          <CircularProgress size={24} sx={{ color: '#9ca3af' }} />
+        </div>
+      )}
     </div>
   );
 };

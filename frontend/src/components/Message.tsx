@@ -27,18 +27,14 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming, onRegenerate })
       }`}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
-            {isStreaming ? (
-              <div className="flex items-center gap-2">
-                <ReactMarkdown className="prose prose-invert max-w-none">
-                  {message.content}
-                </ReactMarkdown>
-                <CircularProgress size={16} className="text-gray-400" />
-              </div>
-            ) : (
+            <div className="flex items-center gap-2">
               <ReactMarkdown className="prose prose-invert max-w-none">
                 {message.content}
               </ReactMarkdown>
-            )}
+              {isStreaming && (
+                <CircularProgress size={16} className="text-gray-400" />
+              )}
+            </div>
           </div>
           {isAssistant && onRegenerate && (
             <IconButton

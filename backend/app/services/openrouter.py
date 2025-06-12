@@ -86,7 +86,7 @@ async def generate_chat_completion(chat_request: ChatRequest) -> AsyncGenerator[
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://t3-chat-clone.com",  # Replace with your actual domain
+        "HTTP-Referer": "https://t3-chat-clone.com",
         "X-Title": "T3 Chat Clone"
     }
     
@@ -98,83 +98,39 @@ async def generate_chat_completion(chat_request: ChatRequest) -> AsyncGenerator[
         "max_tokens": chat_request.max_tokens
     }
     
-    logger.info(f"Sending request to OpenRouter API with model: {chat_request.model}")
-    logger.info(f"Messages: {[msg.content[:30] + '...' for msg in chat_request.messages]}")
-    
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            logger.info(f"Sending POST request to {OPENROUTER_API_URL}")
-            
+        async with httpx.AsyncClient(timeout=30.0) as client:
             async with client.stream("POST", OPENROUTER_API_URL, headers=headers, json=payload) as response:
-                logger.info(f"Response status code: {response.status_code}")
-                
                 if response.status_code != 200:
                     error_detail = await response.aread()
-                    logger.error(f"OpenRouter API error: {error_detail}")
                     raise HTTPException(status_code=response.status_code, detail=f"OpenRouter API error: {error_detail}")
                 
-                # Handle streaming response
-                chunk_count = 0
-                accumulated_content = ""
-                
                 async for line in response.aiter_lines():
-                    if line.strip() == "":
+                    if not line.strip() or not line.startswith("data: "):
                         continue
                     
-                    if line.startswith("data: "):
-                        line = line[6:]  # Remove the "data: " prefix
-                    
+                    line = line[6:]  # Remove the "data: " prefix
                     if line == "[DONE]":
-                        logger.info("Stream completed with [DONE] marker")
                         break
                     
                     try:
                         chunk = json.loads(line)
-                        chunk_count += 1
-                        
-                        # Process the chunk content to clean up text
-                        if chat_request.stream:
-                            processed_chunk = process_chunk_content(chunk)
-                            
-                            # If streaming, also accumulate content for debugging
-                            if 'choices' in chunk and chunk['choices'] and 'delta' in chunk['choices'][0]:
-                                delta = chunk['choices'][0]['delta']
-                                if 'content' in delta and delta['content']:
-                                    accumulated_content += delta['content']
-                        else:
-                            # For non-streaming responses, apply full cleaning
-                            processed_chunk = process_chunk_content(chunk)
-                        
-                        # Log the first few chunks and last chunk for debugging
-                        if chunk_count <= 2 or chunk_count % 50 == 0:
-                            logger.info(f"Chunk {chunk_count}: {json.dumps(processed_chunk)[:100]}...")
-                        
-                        # Format the chunk to match the expected response format
-                        formatted_chunk = {
-                            "id": chunk.get("id", ""),
-                            "model": chat_request.model,
-                            "choices": [{
-                                "message": {
-                                    "content": chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                        if 'choices' in chunk and chunk['choices'] and 'delta' in chunk['choices'][0]:
+                            delta = chunk['choices'][0]['delta']
+                            if 'content' in delta and delta['content']:
+                                yield {
+                                    "id": chunk.get("id", ""),
+                                    "model": chat_request.model,
+                                    "choices": [{
+                                        "message": {
+                                            "content": delta['content']
+                                        }
+                                    }]
                                 }
-                            }]
-                        }
-                        
-                        yield formatted_chunk
                     except json.JSONDecodeError:
-                        logger.error(f"Failed to parse line: {line}")
                         continue
-                
-                logger.info(f"Stream completed with {chunk_count} chunks")
-                
-                # Log a sample of the accumulated content for debugging
-                if accumulated_content:
-                    sample_size = min(200, len(accumulated_content))
-                    logger.info(f"Sample of accumulated content: {accumulated_content[:sample_size]}...")
     
     except (httpx.RequestError, asyncio.TimeoutError) as e:
-        logger.error(f"Error connecting to OpenRouter API: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error connecting to OpenRouter API: {str(e)}")
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}") 
