@@ -650,7 +650,7 @@ async def get_models():
     """
     Get list of available models
     """
-    return {"models": AVAILABLE_MODELS}
+    return {"models": AVAILABLE_MODELS} 
 
 @router.delete("/chats/{chat_id}/messages/regenerate/{message_id}")
 def delete_messages_after_regeneration(chat_id: int, message_id: int, db: Session = Depends(get_db)):

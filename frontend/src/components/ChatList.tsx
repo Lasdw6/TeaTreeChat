@@ -145,7 +145,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
 
   return (
     <Box sx={{ 
-      width: 300, 
+      width: '100%', 
       bgcolor: '#1a1a1a',
       borderRight: 1, 
       borderColor: '#333',

@@ -50,7 +50,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   };
   
   return (
-    <form onSubmit={handleSubmit} className="p-4 border-t border-gray-700 bg-gray-800">
+    <form onSubmit={handleSubmit} className="p-4 border-t border-gray-700 bg-gray-800 rounded-2xl shadow-lg">
       <div className="flex items-end space-x-2">
         <div className="flex-1 flex items-end space-x-2">
           <ModelSelector

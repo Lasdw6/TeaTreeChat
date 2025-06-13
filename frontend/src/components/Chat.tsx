@@ -3,6 +3,7 @@ import ChatList from './ChatList';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import { useRouter } from 'next/navigation';
+import { Menu as MenuIcon, ChevronLeft as ChevronLeftIcon } from '@mui/icons-material';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const DEFAULT_USER_ID = 1;
@@ -32,6 +33,7 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | undefined>(undefined);
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -165,15 +167,15 @@ export default function Chat() {
       };
 
       try {
-        while (true) {
-          const { done, value } = await reader.read();
-          
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n').filter(line => line.trim() !== '');
+      while (true) {
+        const { done, value } = await reader.read();
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
               if (data === '[DONE]') {
                 // Clear any existing timeout
                 if (lastChunkTimeout) {
@@ -186,17 +188,17 @@ export default function Chat() {
                 break;
               }
 
-              try {
-                const parsed = JSON.parse(data);
-                if (parsed.content) {
-                  accumulatedContent += parsed.content;
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                accumulatedContent += parsed.content;
                   updateMessage(accumulatedContent);
-                }
-              } catch (e) {
-                console.error("Error parsing chunk:", e);
               }
+            } catch (e) {
+              console.error("Error parsing chunk:", e);
             }
           }
+        }
 
           if (done) {
             // Clear any existing timeout
@@ -246,7 +248,7 @@ export default function Chat() {
       console.error("Error in chat:", error);
       // Remove the temporary message if there was an error
       if (tempMessageId) {
-        setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
+      setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
       }
       setStreamingMessageId(undefined);
     } finally {
@@ -498,19 +500,41 @@ export default function Chat() {
 
   return (
     <div className="flex h-screen bg-gray-900">
+      {/* Collapsible Sidebar */}
+      <div className={`transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-12'} bg-gray-800 flex flex-col`}>
+        <button
+          className="p-2 w-full text-left focus:outline-none text-gray-400 hover:text-white"
+          onClick={() => setSidebarOpen((open) => !open)}
+        >
+          {sidebarOpen ? <ChevronLeftIcon /> : <MenuIcon />}
+        </button>
+        {sidebarOpen && (
       <ChatList 
         onSelectChat={setSelectedChatId} 
         selectedChatId={selectedChatId} 
         shouldRefresh={shouldRefreshChats}
         onRefresh={onChatListRefresh}
       />
-      
+        )}
+      </div>
       <div className="flex-1 flex flex-col">
         {!selectedChatId ? (
           <div className="flex-1 flex items-center justify-center text-gray-400">
             <div className="text-center">
               <h2 className="text-2xl font-semibold mb-2">Welcome to the Chat App</h2>
               <p>Select a chat from the sidebar or create a new one to start messaging</p>
+            </div>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center">
+            <div className="w-full max-w-2xl rounded-2xl shadow-lg bg-gray-800">
+              <MessageInput
+                onSendMessage={handleSend}
+                disabled={isLoading}
+                placeholder="Type your message..."
+                selectedModel={selectedModel}
+                onModelChange={setSelectedModel}
+              />
             </div>
           </div>
         ) : (

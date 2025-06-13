@@ -1,6 +1,6 @@
 TODO
-[]Update newchat creation screen
-[]Forking Chats
+[x]Update newchat creation screen
+[x]Forking Chats
 [x]Fix Regenerating responses(Removing the rest of the conversation) 
 [x]Add models to regenration
 []Login/Auth

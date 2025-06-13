@@ -51,9 +51,9 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
   };
 
   return (
-    <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div className={`flex flex-col ${message.role === 'user' ? 'w-[95%]' : ''}`}>
-        <div className={`max-w-[85%] ${message.role === 'user' ? 'bg-indigo-600 ml-auto' : 'bg-gray-800'} rounded-lg p-4 relative`}>
+    <div className={`flex justify-center mb-4`}>
+      <div className={`flex flex-col w-[70%]`}>
+        <div className={`max-w-full ${message.role === 'user' ? 'bg-indigo-600 self-end mr-40' : 'bg-transparent self-start ml-14'} rounded-lg p-4 relative`}>
           <div className="prose prose-invert prose-sm max-w-none markdown-content">
             <ReactMarkdown components={{
               p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
@@ -101,7 +101,7 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
                 <span>
                   <IconButton
                     onClick={handleMenuOpen}
-                    size="small"
+                    size="medium"
                     disabled={isStreaming || regenerating}
                     sx={{
                       color: '#9ca3af',
@@ -113,10 +113,11 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
                         color: '#4b5563',
                       },
                       transition: 'all 0.2s ease-in-out',
+                      verticalAlign: 'middle',
                     }}
                   >
-                    <RefreshIcon 
-                      fontSize="small" 
+                    <RefreshIcon
+                      fontSize="medium"
                       sx={{
                         animation: regenerating ? 'spin 1s linear infinite' : 'none',
                         '@keyframes spin': {
@@ -147,16 +148,15 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 16 16"
                     fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
                   >
-                    <path d="M12 2v20M2 12h20" />
+                    <path
+                      fill="currentColor"
+                      d="M5 3.25A1.75 1.75 0 1 0 5 6.75a1.75 1.75 0 0 0 0-3.5Zm0 1A.75.75 0 1 1 5 5.75a.75.75 0 0 1 0-1.5Zm6-1A1.75 1.75 0 1 0 11 6.75a1.75 1.75 0 0 0 0-3.5Zm0 1a.75.75 0 1 1 0 1.5a.75.75 0 0 1 0-1.5ZM5.75 7.5a.75.75 0 0 0-.75.75v1.19a2.75 2.75 0 0 0 2 2.65v1.16a.75.75 0 1 0 1.5 0v-1.16a2.75 2.75 0 0 0 2-2.65V8.25a.75.75 0 0 0-1.5 0v1.19a1.25 1.25 0 0 1-2.5 0V8.25a.75.75 0 0 0-.75-.75Z"
+                    />
                   </svg>
                 </IconButton>
               </Tooltip>
