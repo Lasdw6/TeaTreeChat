@@ -10,6 +10,9 @@ from jose import jwt, JWTError
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Security
 from datetime import datetime
+from ...models.chat import Chat, MessageDB
+from cryptography.fernet import Fernet
+import os
 
 router = APIRouter()
 
@@ -37,6 +40,18 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Fernet key for encryption (should be set in environment securely)
+FERNET_KEY = os.environ.get("FERNET_KEY")
+if not FERNET_KEY:
+    raise RuntimeError("FERNET_KEY environment variable not set!")
+fernet = Fernet(FERNET_KEY)
+
+def encrypt_api_key(api_key: str) -> str:
+    return fernet.encrypt(api_key.encode()).decode()
+
+def decrypt_api_key(encrypted_key: str) -> str:
+    return fernet.decrypt(encrypted_key.encode()).decode()
 
 def get_password_hash(password):
     return pwd_context.hash(password)
@@ -90,11 +105,47 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     hashed_password = get_password_hash(user.password)
-    hashed_api_key = get_password_hash(user.api_key) if user.api_key else None
-    new_user = User(name=user.name, email=user.email, hashed_password=hashed_password, api_key=hashed_api_key)
+    encrypted_api_key = encrypt_api_key(user.api_key) if user.api_key else None
+    new_user = User(name=user.name, email=user.email, hashed_password=hashed_password, api_key=encrypted_api_key)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    # Create default welcome chat
+    welcome_chat = Chat(
+        title="Welcome!",
+        user_id=new_user.id,
+        model_used="gpt-3.5-turbo"
+    )
+    db.add(welcome_chat)
+    db.commit()
+    db.refresh(welcome_chat)
+
+    # Add user message
+    user_msg = MessageDB(
+        chat_id=welcome_chat.id,
+        role="user",
+        content="What is TeaTree Chat?",
+        model="gpt-3.5-turbo"
+    )
+    db.add(user_msg)
+    db.commit()
+
+    # Add assistant message
+    assistant_msg = MessageDB(
+        chat_id=welcome_chat.id,
+        role="assistant",
+        content=(
+            "**🌳 Welcome to TeaTree Chat! 🌳**\n\n"
+            "TeaTree Chat is a T3chat clone made as part of the Cloneathon. \n It works on a BYOK (Bring Your Own Key) basis using OpenRouter.\n\n"
+            "To get started, go to **Settings** and set your OpenRouter API key.\n\n"
+            "✨ _More features coming soon: web search, chat search, and more!_ ✨"
+        ),
+        model="gpt-3.5-turbo"
+    )
+    db.add(assistant_msg)
+    db.commit()
+
     return UserResponse(id=new_user.id, name=new_user.name, email=new_user.email, api_key=None)
 
 @router.post("/login", response_model=Token)
@@ -123,7 +174,7 @@ class ApiKeyUpdate(BaseModel):
 
 @router.put("/me/api_key", response_model=UserResponse)
 def update_api_key(update: ApiKeyUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    current_user.api_key = get_password_hash(update.api_key)
+    current_user.api_key = encrypt_api_key(update.api_key)
     db.commit()
     db.refresh(current_user)
     return UserResponse(id=current_user.id, name=current_user.name, email=current_user.email, api_key=None) 

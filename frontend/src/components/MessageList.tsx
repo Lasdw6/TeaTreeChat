@@ -53,7 +53,22 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
   return (
     <div className={`flex justify-center mb-4`}>
       <div className={`flex flex-col w-[70%]`}>
-        <div className={`max-w-full ${message.role === 'user' ? 'bg-indigo-600 self-end mr-40' : 'bg-transparent self-start ml-14'} rounded-lg p-4 relative`}>
+        <div
+          className={`max-w-full rounded-lg p-4 relative ${
+            message.role === 'user'
+              ? 'self-end mr-40'
+              : message.role === 'system'
+              ? 'self-center'
+              : 'self-start ml-14 mr-32'
+          }`}
+          style={
+            message.role === 'user'
+              ? { background: '#D6BFA3', color: '#111' }
+              : message.role === 'system'
+              ? { background: 'rgba(239,68,68,0.15)', border: '1px solid #ef4444', color: '#ef4444' }
+              : { color: '#D6BFA3' }
+          }
+        >
           <div className="prose prose-invert prose-sm max-w-none markdown-content">
             <ReactMarkdown components={{
               p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
@@ -175,20 +190,22 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
                 PaperProps={{
                   elevation: 3,
                   sx: {
-                    bgcolor: '#1f2937',
-                    color: '#ffffff',
+                    bgcolor: '#4E342E',
+                    color: '#fff',
                     mt: 1,
                     minWidth: '200px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    border: '1px solid #D6BFA3',
                     '& .MuiMenuItem-root': {
                       fontSize: '0.875rem',
                       py: 1.5,
                       px: 2,
+                      color: '#fff',
                       '&:hover': {
-                        bgcolor: 'rgba(79, 70, 229, 0.1)',
+                        bgcolor: '#D6BFA3',
+                        color: '#111',
                       },
                       '&:first-of-type': {
-                        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderBottom: '1px solid #D6BFA3',
                         mb: 0.5,
                       },
                     },
@@ -351,7 +368,8 @@ const CodeBlockWithCopy: React.FC<{ children: string; language?: string }> = ({ 
           margin: 0,
           borderRadius: '0 0 0.5rem 0.5rem',
           padding: '1rem',
-          background: '#1a1a1a',
+          background: '#4E342E',
+          color: '#D6BFA3',
         }}
         showLineNumbers
         wrapLines

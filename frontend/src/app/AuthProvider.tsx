@@ -5,6 +5,8 @@ import { loginUser, registerUser, getCurrentUser, updateApiKey } from '@/lib/api
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -16,14 +18,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (storedToken) {
       setToken(storedToken);
       getCurrentUser(storedToken)
-        .then(setUser)
+        .then(user => {
+          setUser(user);
+          setApiKeyState(user.api_key || storedApiKey || null);
+          if (user.api_key) {
+            localStorage.setItem('apiKey', user.api_key);
+          } else if (storedApiKey) {
+            localStorage.setItem('apiKey', storedApiKey);
+          } else {
+            localStorage.removeItem('apiKey');
+          }
+        })
         .catch(() => {
           setUser(null);
           setToken(null);
           localStorage.removeItem('token');
+          setApiKeyState(null);
+          localStorage.removeItem('apiKey');
         });
-    }
-    if (storedApiKey) {
+    } else if (storedApiKey) {
       setApiKeyState(storedApiKey);
     }
   }, []);
@@ -42,6 +55,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
   }, [token, apiKey]);
+
+  useEffect(() => {
+    if (user) {
+      setApiKeyState(user.api_key || null);
+      if (user.api_key) {
+        localStorage.setItem('apiKey', user.api_key);
+      } else {
+        localStorage.removeItem('apiKey');
+      }
+    }
+  }, [user]);
 
   const login = async (email: string, password: string) => {
     const data = await loginUser(email, password);
@@ -75,10 +99,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setApiKey = async (key: string) => {
     setApiKeyState(key);
+    if (typeof window !== 'undefined') {
+      if (key) {
+        localStorage.setItem('apiKey', key);
+      } else {
+        localStorage.removeItem('apiKey');
+      }
+    }
     if (token) {
       try {
         const updatedUser = await updateApiKey(key, token);
+        setUser(updatedUser);
         setApiKeyState(updatedUser.api_key);
+        if (typeof window !== 'undefined') {
+          if (updatedUser.api_key) {
+            localStorage.setItem('apiKey', updatedUser.api_key);
+          } else {
+            localStorage.removeItem('apiKey');
+          }
+        }
       } catch (e) {
         console.error('Failed to update API key in backend', e);
       }
@@ -86,8 +125,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const deleteAccount = async () => {
+    console.log('deleteAccount called');
     if (!token) return;
-    await fetch('/api/user/me', {
+    await fetch(`${API_BASE_URL}/user/me`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });

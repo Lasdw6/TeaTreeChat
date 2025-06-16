@@ -13,4 +13,4 @@ class User(Base):
     # NOTE: Run a migration or recreate the database after adding this field
     
     # Relationship with chats
-    chats = relationship("Chat", back_populates="user") 
+    chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan") 

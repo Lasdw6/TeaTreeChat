@@ -5,6 +5,8 @@ import MessageInput from './MessageInput';
 import { useRouter } from 'next/navigation';
 import { Menu as MenuIcon, ChevronLeft as ChevronLeftIcon } from '@mui/icons-material';
 import { useAuth } from '../app/AuthProvider';
+import { useTheme } from '@mui/material/styles';
+import { Snackbar, Alert } from '@mui/material';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const DEFAULT_USER_ID = 1;
@@ -37,6 +39,15 @@ export default function Chat() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const router = useRouter();
   const { token } = useAuth();
+  const theme = useTheme();
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const idCounter = useRef(0);
+  const [apiKey, setApiKey] = useState<string | null>(null);
+
+  function getUniqueId() {
+    idCounter.current += 1;
+    return `msg_${idCounter.current}`;
+  }
 
   useEffect(() => {
     if (selectedChatId) {
@@ -45,6 +56,18 @@ export default function Chat() {
       setMessages([]);
     }
   }, [selectedChatId]);
+
+  // On mount and when localStorage changes, update apiKey from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setApiKey(localStorage.getItem('apiKey'));
+      const handleStorage = (e: StorageEvent) => {
+        if (e.key === 'apiKey') setApiKey(e.newValue);
+      };
+      window.addEventListener('storage', handleStorage);
+      return () => window.removeEventListener('storage', handleStorage);
+    }
+  }, []);
 
   const fetchChatMessages = async (chatId: number) => {
     try {
@@ -80,13 +103,34 @@ export default function Chat() {
   const handleSend = async (message: string) => {
     if (!message.trim() || !selectedChatId) return;
 
+    // Check for API key in localStorage
+    if (!apiKey) {
+      const errMsg = 'No API key detected. Please set your OpenRouter API key in Settings.';
+      const userMessage: Message = {
+        id: getUniqueId(),
+        role: 'user',
+        content: message,
+        created_at: new Date().toISOString(),
+        chat_id: selectedChatId
+      };
+      setMessages(prev => [...prev, userMessage, {
+        id: getUniqueId(),
+        role: 'assistant',
+        content: errMsg,
+        created_at: new Date().toISOString(),
+        chat_id: selectedChatId
+      }]);
+      setErrorText(errMsg);
+      return;
+    }
+
     let tempMessageId: string | undefined = undefined;
     setIsLoading(true);
 
     try {
       // Add user message
       const userMessage: Message = {
-        id: Date.now().toString(),
+        id: getUniqueId(),
         role: "user",
         content: message,
         created_at: new Date().toISOString(),
@@ -111,14 +155,26 @@ export default function Chat() {
       );
 
       if (!userResponse.ok) {
-        throw new Error("Failed to add user message");
+        const errData = await userResponse.json().catch(() => ({}));
+        const errMsg = errData.detail || "Failed to add user message";
+        // Surface error to the UI as a system message
+        const newSystemMsg: Message = {
+          id: getUniqueId(),
+          role: "assistant",
+          content: errMsg,
+          created_at: new Date().toISOString(),
+          chat_id: selectedChatId
+        };
+        setMessages(prev => [...prev, userMessage, newSystemMsg]);
+        setErrorText(errMsg);
+        throw new Error(errMsg);
       }
 
       // Optimistically add user message to UI
       setMessages(prev => [...prev, userMessage]);
 
       // Create a temporary message for streaming
-      tempMessageId = Date.now().toString();
+      tempMessageId = getUniqueId();
       setStreamingMessageId(tempMessageId);
       const tempMessage: Message = {
         id: tempMessageId,
@@ -134,6 +190,8 @@ export default function Chat() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(apiKey ? { 'X-API-KEY': apiKey } : {})
         },
         body: JSON.stringify({
           model: selectedModel,
@@ -149,8 +207,21 @@ export default function Chat() {
 
       if (!aiResponse.ok) {
         const errorData = await aiResponse.json().catch(() => ({}));
+        const errMsg = errorData.detail || "Failed to get AI response.";
         console.error("AI Response Error:", errorData);
-        throw new Error(errorData.detail || "Failed to get AI response");
+        // Show in UI
+        setMessages(prev => [
+          ...prev.filter(msg => msg.id !== tempMessageId),
+          {
+            id: getUniqueId(),
+            role: "assistant",
+            content: errMsg,
+            created_at: new Date().toISOString(),
+            chat_id: selectedChatId
+          }
+        ]);
+        setErrorText(errMsg);
+        throw new Error(errMsg);
       }
 
       const reader = aiResponse.body?.getReader();
@@ -198,9 +269,19 @@ export default function Chat() {
 
             try {
               const parsed = JSON.parse(data);
+              if (parsed.detail) {
+                const errMsg: string = parsed.detail;
+                accumulatedContent = errMsg;
+                updateMessage(errMsg);
+                setErrorText(errMsg);
+                setStreamingMessageId(undefined);
+                // Cancel further reading
+                reader?.cancel().catch(() => {});
+                break;
+              }
               if (parsed.content) {
                 accumulatedContent += parsed.content;
-                  updateMessage(accumulatedContent);
+                updateMessage(accumulatedContent);
               }
             } catch (e) {
               console.error("Error parsing chunk:", e);
@@ -256,9 +337,13 @@ export default function Chat() {
       setShouldRefreshChats(true);
     } catch (error) {
       console.error("Error in chat:", error);
-      // Remove the temporary message if there was an error
+      // Remove the temporary message if there was an error and it is still empty (not replaced by error)
       if (tempMessageId) {
-      setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
+        setMessages(prev => prev.filter(msg => {
+          if (msg.id !== tempMessageId) return true;
+          // Only remove if content is still empty (was not replaced by error)
+          return !!msg.content;
+        }));
       }
       setStreamingMessageId(undefined);
     } finally {
@@ -298,7 +383,7 @@ export default function Chat() {
 
       // Create a temporary message for streaming
       const tempMessage: Message = {
-        id: messageId,
+        id: getUniqueId(),
         role: "assistant",
         content: "",
         created_at: new Date().toISOString(),
@@ -311,6 +396,7 @@ export default function Chat() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           model: model || selectedModel,
@@ -326,8 +412,21 @@ export default function Chat() {
 
       if (!aiResponse.ok) {
         const errorData = await aiResponse.json().catch(() => ({}));
+        const errMsg = errorData.detail || "Failed to get AI response";
         console.error("AI Response Error:", errorData);
-        throw new Error(errorData.detail || "Failed to get AI response");
+        // Show in UI
+        setMessages(prev => [
+          ...prev.filter(msg => msg.id !== messageId),
+          {
+            id: getUniqueId(),
+            role: "assistant",
+            content: errMsg,
+            created_at: new Date().toISOString(),
+            chat_id: selectedChatId
+          }
+        ]);
+        setErrorText(errMsg);
+        throw new Error(errMsg);
       }
 
       // Wait for deletion to complete
@@ -351,7 +450,7 @@ export default function Chat() {
           const messagesUpToRegeneration = prevMessages.slice(0, messageIndex);
           // Add the streaming message
           return [...messagesUpToRegeneration, {
-            id: messageId,
+            id: getUniqueId(),
             role: "assistant",
             content: content,
             created_at: new Date().toISOString(),
@@ -384,6 +483,15 @@ export default function Chat() {
 
               try {
                 const parsed = JSON.parse(data);
+                if (parsed.detail) {
+                  const errMsg:string = parsed.detail;
+                  accumulatedContent = errMsg;
+                  updateMessage(errMsg);
+                  setErrorText(errMsg);
+                  // Cancel further reading
+                  reader?.cancel().catch(()=>{});
+                  break;
+                }
                 if (parsed.content) {
                   accumulatedContent += parsed.content;
                   updateMessage(accumulatedContent);
@@ -510,9 +618,9 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-900">
+    <div className="flex h-screen" style={{ background: 'transparent' }}>
       {/* Collapsible Sidebar */}
-      <div className={`transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-12'} bg-gray-800 flex flex-col`}>
+      <div className={`transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col`} style={{ background: 'rgba(30,32,40,0.92)' }}>
         <button
           className="p-2 w-full text-left focus:outline-none text-gray-400 hover:text-white"
           onClick={() => setSidebarOpen((open) => !open)}
@@ -528,11 +636,11 @@ export default function Chat() {
       />
         )}
       </div>
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col" style={{ background: 'transparent' }}>
         {!selectedChatId ? (
           <div className="flex-1 flex items-center justify-center text-gray-400">
             <div className="text-center">
-              <h2 className="text-2xl font-semibold mb-2">Welcome to the Chat App</h2>
+              <h2 className="text-2xl font-semibold mb-2">Welcome to TeaTree Chat</h2>
               <p>Select a chat from the sidebar or create a new one to start messaging</p>
             </div>
           </div>
@@ -567,6 +675,9 @@ export default function Chat() {
           </>
         )}
       </div>
+      <Snackbar open={!!errorText} autoHideDuration={6000} onClose={()=>setErrorText(null)} anchorOrigin={{vertical:'bottom',horizontal:'center'}}>
+        <Alert severity="error" sx={{bgcolor:'#4E342E',color:'#ef4444',border:'1px solid #ef4444'}}>{errorText}</Alert>
+      </Snackbar>
     </div>
   );
 } 

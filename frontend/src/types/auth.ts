@@ -4,6 +4,7 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  api_key?: string;
 }
 
 export interface AuthContextType {

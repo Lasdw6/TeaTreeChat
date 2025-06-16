@@ -7,8 +7,8 @@ import { AuthProvider } from './AuthProvider'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'T3 Chat App',
-  description: 'A modern chat application built with the T3 stack',
+  title: 'TeaTree Chat',
+  description: 'A modern chat application built with the TeaTree stack',
 }
 
 export default function RootLayout({

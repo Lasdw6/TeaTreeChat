@@ -50,37 +50,40 @@ const MessageInput: React.FC<MessageInputProps> = ({
   };
   
   return (
-    <form onSubmit={handleSubmit} className="p-4 border-t border-gray-700 bg-gray-800 rounded-2xl shadow-lg">
-      <div className="flex items-end space-x-2">
-        <div className="flex-1 flex items-end space-x-2">
-          <ModelSelector
-            selectedModel={selectedModel}
-            onModelChange={onModelChange}
-            disabled={disabled}
-            className="w-48"
-          />
-          <textarea
-            ref={textareaRef}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            disabled={disabled}
-            className="flex-1 min-h-[2.5rem] max-h-32 py-3 px-4 resize-none bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all overflow-hidden whitespace-pre-wrap break-words"
-            style={{ width: '50%', minWidth: '200px' }}
-            rows={1}
-          />
+    <div className="flex flex-col w-full max-w-3xl mx-auto" style={{ width: '100%' }}>
+      <form onSubmit={handleSubmit} className="p-4 border-t border-gray-700 rounded-2xl shadow-lg" style={{ background: '#4E342E', width: '100%' }}>
+        <div className="flex items-end space-x-2">
+          <div className="flex-1 flex items-end space-x-2">
+            <ModelSelector
+              selectedModel={selectedModel}
+              onModelChange={onModelChange}
+              disabled={disabled}
+              className="w-48"
+            />
+            <textarea
+              ref={textareaRef}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              disabled={disabled}
+              className="flex-1 min-h-[2.5rem] max-h-32 py-3 px-4 resize-none border border-gray-600 rounded-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all overflow-hidden whitespace-pre-wrap break-words"
+              style={{ width: '80%', minWidth: '200px', background: '#D6BFA3', color: '#111' }}
+              rows={1}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={!message.trim() || disabled}
+            className="flex items-center justify-center px-6 py-3 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all hover:scale-105 active:scale-95"
+            style={{ background: '#D6BFA3', color: '#111' }}
+          >
+            <SendIcon className="w-5 h-5 mr-2" />
+            Send
+          </button>
         </div>
-        <button
-          type="submit"
-          disabled={!message.trim() || disabled}
-          className="flex items-center justify-center px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
-        >
-          <SendIcon className="w-5 h-5 mr-2" />
-          Send
-        </button>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 };
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status, Query, Body, Header
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +19,9 @@ from sqlalchemy.orm import Session
 from ...core.database import SessionLocal, get_db
 from pydantic import BaseModel
 from .user import get_current_user
+from ...models.user import User
+from passlib.context import CryptContext
+from cryptography.fernet import Fernet
 
 router = APIRouter()
 logger = logging.getLogger("chat_router")
@@ -366,30 +369,41 @@ class DuplicateContentTracker:
         
         return chunk_data
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Fernet key for encryption (should be set in environment securely)
+FERNET_KEY = os.environ.get("FERNET_KEY")
+if not FERNET_KEY:
+    raise RuntimeError("FERNET_KEY environment variable not set!")
+fernet = Fernet(FERNET_KEY)
+
+def decrypt_api_key(encrypted_key: str) -> str:
+    return fernet.decrypt(encrypted_key.encode()).decode()
+
 @router.post("/completions")
-async def chat_completion(request: ChatRequest):
-    """
-    Get a chat completion from the AI model
-    """
+async def chat_completion(request: ChatRequest, current_user: User = Depends(get_current_user)):
+    # Decrypt API key from DB
+    if not current_user.api_key:
+        raise HTTPException(status_code=400, detail="No API key set for user.")
+    try:
+        api_key = decrypt_api_key(current_user.api_key)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to decrypt API key.")
     try:
         if request.stream:
-            # Use Server-Sent Events for streaming
             return EventSourceResponse(
-                stream_chat_completion(request),
+                stream_chat_completion(request, api_key),
                 media_type="text/event-stream"
             )
         else:
-            # Non-streaming response
             full_response = ""
-            async for chunk in generate_chat_completion(request):
+            async for chunk in generate_chat_completion(request, api_key):
                 if "choices" in chunk and chunk["choices"]:
                     if "delta" in chunk["choices"][0] and "content" in chunk["choices"][0]["delta"]:
                         full_response += chunk["choices"][0]["delta"]["content"]
                     elif "message" in chunk["choices"][0] and "content" in chunk["choices"][0]["message"]:
                         full_response = chunk["choices"][0]["message"]["content"]
-            
             logger.info(f"Full response: {full_response}")  # Debug log
-            
             response = {
                 "id": f"chatcmpl-{int(datetime.now().timestamp())}",
                 "object": "chat.completion",
@@ -404,65 +418,43 @@ async def chat_completion(request: ChatRequest):
                     "finish_reason": "stop"
                 }]
             }
-            
             logger.info(f"Response format: {json.dumps(response, indent=2)}")  # Debug log
             return response
-            
     except Exception as e:
         logger.error(f"Error in chat completion: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")  # Add traceback
         raise HTTPException(status_code=500, detail=str(e))
 
-async def stream_chat_completion(request: ChatRequest):
-    """
-    Stream the chat completion response
-    """
+async def stream_chat_completion(request: ChatRequest, user_api_key: str):
     try:
-        # Generate a unique conversation ID
         conversation_id = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{id(request)}"
         logger.info(f"Starting conversation: {conversation_id} with model: {request.model}")
-        
         chunk_count = 0
-        
         try:
-            async for chunk in generate_chat_completion(request):
+            async for chunk in generate_chat_completion(request, user_api_key):
                 chunk_count += 1
-
-                # Skip empty chunks
                 if not chunk or not chunk.get("choices", []):
                     continue
-                    
                 choice = chunk["choices"][0]
                 content = ""
-                
-                # Extract content from either delta or message
                 if "delta" in choice and "content" in choice["delta"]:
                     content = choice["delta"]["content"]
                 elif "message" in choice and "content" in choice["message"]:
                     content = choice["message"]["content"]
-                
                 if not content:
                     continue
-                
-                # Send just the content chunk
                 yield {
                     "event": "message",
                     "data": json.dumps({
                         "content": content
                     })
                 }
-                
-                # Small delay to avoid overwhelming the client
                 await asyncio.sleep(0.01)
-            
-            # Send completion event
             yield {
                 "event": "done",
                 "data": json.dumps({"status": "complete"})
             }
-            
             logger.info(f"Conversation {conversation_id} completed with {chunk_count} chunks")
-                
         except asyncio.CancelledError:
             logger.info(f"Conversation {conversation_id} was cancelled")
             yield {
@@ -472,12 +464,10 @@ async def stream_chat_completion(request: ChatRequest):
                 })
             }
             return
-            
     except Exception as e:
         error_msg = f"Error in stream_chat_completion: {str(e)}"
         logger.error(error_msg)
         logger.error(f"Traceback: {traceback.format_exc()}")
-        
         yield {
             "event": "error",
             "data": json.dumps({

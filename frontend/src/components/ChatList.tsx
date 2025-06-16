@@ -15,6 +15,7 @@ import {
   TextField,
   Avatar,
   Paper,
+  Divider,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { Chat } from '../types/chat';
@@ -38,18 +39,16 @@ interface ChatListProps {
 }
 
 export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh = false, onRefresh }: ChatListProps) {
-  const { user, token, refreshUser } = useAuth();
+  const { user, token, refreshUser, apiKey } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false);
   const [newChatTitle, setNewChatTitle] = useState('');
+  const [hasKey, setHasKey] = useState<boolean>(false);
 
   useEffect(() => {
-    if (token) {
-    fetchUserData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+    setHasKey(!!(apiKey || (typeof window !== 'undefined' && localStorage.getItem('apiKey'))));
+  }, [apiKey]);
 
   useEffect(() => {
     if (user && token) {
@@ -57,21 +56,11 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
     }
   }, [user, token]);
 
-  // Effect to select the most recent chat when chats are loaded
   useEffect(() => {
     if (chats.length > 0 && !selectedChatId) {
       onSelectChat(chats[0].id);
     }
   }, [chats, selectedChatId, onSelectChat]);
-
-  const fetchUserData = async () => {
-    if (!token) return;
-    try {
-      await refreshUser();
-    } catch (error) {
-      console.error('Error refreshing user data:', error);
-    }
-  };
 
   const fetchChats = async () => {
     if (!user || !token) return;
@@ -138,15 +127,28 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   };
 
   return (
-    <Box sx={{ 
-      width: '100%', 
-      bgcolor: '#1a1a1a',
-      borderRight: 1, 
+    <Box sx={{
+      width: '100%',
+      bgcolor: '#4E342E',
+      borderRight: 1,
       borderColor: '#333',
       display: 'flex',
       flexDirection: 'column',
       height: '100vh',
-      color: '#fff'
+      color: '#fff',
+      boxShadow: '4px 0 16px 0 rgba(0,0,0,0.10)',
+      borderTopRightRadius: 16,
+      borderBottomRightRadius: 16,
+      overflow: 'hidden',
+      position: 'relative',
+      '::before': {
+        content: '""',
+        position: 'absolute',
+        inset: 0,
+        zIndex: 0,
+        background: 'linear-gradient(135deg, rgba(214,191,163,0.08) 0%, rgba(91,111,86,0.12) 100%)',
+        pointerEvents: 'none',
+      },
     }}>
       <Box sx={{ 
         p: 2, 
@@ -156,17 +158,18 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         borderBottom: 1,
         borderColor: '#333'
       }}>
-        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 600 }}>Chats</Typography>
+        <Typography variant="h6" sx={{ color: '#D6BFA3', fontWeight: 600 }}>Chats</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setIsNewChatDialogOpen(true)}
           size="small"
           sx={{
-            bgcolor: '#6366f1',
+            bgcolor: '#5B6F56',
+            color: '#D6BFA3',
             '&:hover': {
-              bgcolor: '#4f46e5'
-            }
+              bgcolor: '#466146',
+            },
           }}
         >
           New Chat
@@ -228,26 +231,44 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
               selected={selectedChatId === chat.id}
               onClick={() => onSelectChat(chat.id)}
               sx={{
-                borderRadius: 1,
+                borderRadius: 2,
+                bgcolor: selectedChatId === chat.id ? '#D6BFA3' : 'transparent',
+                color: selectedChatId === chat.id ? '#5B6F56' : '#D6BFA3',
+                fontWeight: 700,
+                fontSize: '1.08rem',
+                transition: 'background 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s',
+                boxShadow: selectedChatId === chat.id ? '0 2px 8px 0 rgba(91,111,86,0.10)' : 'none',
+                transform: selectedChatId === chat.id ? 'scale(1.04)' : 'scale(1)',
                 '&.Mui-selected': {
-                  bgcolor: '#6366f1',
+                  bgcolor: '#D6BFA3',
+                  color: '#5B6F56',
                   '&:hover': {
-                    bgcolor: '#4f46e5'
-                  }
+                    bgcolor: '#bfae8c',
+                    color: '#5B6F56',
+                    boxShadow: '0 4px 16px 0 rgba(91,111,86,0.13)',
+                    transform: 'scale(1.06)',
+                  },
                 },
                 '&:hover': {
-                  bgcolor: 'rgba(255, 255, 255, 0.05)'
-                }
+                  bgcolor: '#D6BFA3',
+                  color: '#5B6F56',
+                  boxShadow: '0 4px 16px 0 rgba(91,111,86,0.13)',
+                  transform: 'scale(1.03)',
+                },
+                my: 0.5,
+                mx: 0.5,
+                py: 1.2,
+                px: 2,
               }}
             >
               <ListItemText
                 primary={
-                  <Typography 
-                    variant="body1" 
-                    sx={{ 
-                      color: selectedChatId === chat.id ? '#fff' : '#e5e7eb',
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      color: selectedChatId === chat.id ? '#5B6F56' : '#D6BFA3',
                       fontWeight: 500,
-                      fontSize: '0.95rem'
+                      fontSize: '0.95rem',
                     }}
                   >
                     {chat.title || 'New Chat'}
@@ -259,53 +280,75 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         ))}
       </List>
 
+      <Divider sx={{ my: 3, bgcolor: '#D6BFA3', opacity: 0.5, borderRadius: 2 }} />
       <Paper
-        elevation={0}
+        elevation={1}
         sx={{
-          p: 2,
+          p: 1.2,
+          border: '1.5px solid #D6BFA3',
           borderTop: 1,
-          borderColor: '#333',
+          borderColor: '#D6BFA3',
           mt: 'auto',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          gap: 2,
-          bgcolor: '#1a1a1a'
+          gap: 0.5,
+          bgcolor: '#4E342E',
+          borderRadius: 3,
+          boxShadow: '0 1px 4px 0 rgba(91,111,86,0.10)',
+          mb: 1.5,
+          zIndex: 1,
+          position: 'relative',
+          minWidth: 0,
+          maxWidth: '100%',
         }}
       >
-        <Avatar 
-          sx={{ 
-            bgcolor: '#6366f1',
-            width: 40,
-            height: 40,
-            fontSize: '1.2rem'
+        <Avatar
+          sx={{
+            bgcolor: '#D6BFA3',
+            color: '#4E342E',
+            width: 32,
+            height: 32,
+            fontSize: '1rem',
+            border: '1.5px solid #D6BFA3',
+            boxShadow: '0 1px 2px 0 rgba(91,111,86,0.10)',
+            mb: 0.2,
           }}
         >
           {user && user.name ? user.name.charAt(0).toUpperCase() : 'U'}
         </Avatar>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography 
-            variant="subtitle2" 
-            sx={{ 
-              fontWeight: 600,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              color: '#fff'
-            }}
-          >
-            {user && user.name ? user.name : user && user.id ? `User ${user.id}` : 'User'}
-          </Typography>
-          <Typography 
-            variant="caption" 
-            sx={{
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              display: 'block',
-              color: '#9ca3af'
-            }}
-          >
-            {user && user.email ? user.email : 'No email available'}
+        <Typography
+          variant="subtitle2"
+          sx={{
+            fontWeight: 700,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            color: '#5B6F56',
+            fontSize: '0.95rem',
+            mb: 0.1,
+          }}
+        >
+          {user && user.name ? user.name : user && user.id ? `User ${user.id}` : 'User'}
+        </Typography>
+        <Typography
+          variant="caption"
+          sx={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            display: 'block',
+            color: '#D6BFA3',
+            fontSize: '0.85rem',
+            mb: 0.1,
+          }}
+        >
+          {user && user.email ? user.email : 'No email available'}
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.2 }}>
+          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: (hasKey ? '#5B6F56' : '#ef4444'), mr: 0.7 }} />
+          <Typography variant="caption" sx={{ color: hasKey ? '#5B6F56' : '#ef4444', fontWeight: 600, fontSize: '0.82rem' }}>
+            {hasKey ? 'API Key Set' : 'No API Key'}
           </Typography>
         </Box>
       </Paper>
@@ -315,12 +358,14 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         onClose={() => setIsNewChatDialogOpen(false)}
         PaperProps={{
           sx: {
-            bgcolor: '#1a1a1a',
-            color: '#fff'
+            bgcolor: '#4E342E',
+            color: '#D6BFA3',
+            borderRadius: 3,
+            boxShadow: '0 4px 16px 0 rgba(91,111,86,0.25)'
           }
         }}
       >
-        <DialogTitle sx={{ color: '#fff' }}>Create New Chat</DialogTitle>
+        <DialogTitle sx={{ color: '#D6BFA3', fontWeight: 700 }}>Create New Chat</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -332,22 +377,23 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
             onChange={(e) => setNewChatTitle(e.target.value)}
             sx={{
               '& .MuiOutlinedInput-root': {
+                background: '#4E342E',
                 color: '#fff',
                 '& fieldset': {
                   borderColor: '#333',
                 },
                 '&:hover fieldset': {
-                  borderColor: '#6366f1',
+                  borderColor: '#D6BFA3',
                 },
                 '&.Mui-focused fieldset': {
-                  borderColor: '#6366f1',
+                  borderColor: '#D6BFA3',
                 },
               },
               '& .MuiInputLabel-root': {
-                color: '#9ca3af',
+                color: '#D6BFA3',
               },
               '& .MuiInputLabel-root.Mui-focused': {
-                color: '#6366f1',
+                color: '#D6BFA3',
               },
             }}
           />
@@ -363,9 +409,11 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
             onClick={handleCreateChat} 
             variant="contained"
             sx={{
-              bgcolor: '#6366f1',
+              bgcolor: '#5B6F56',
+              color: '#D6BFA3',
+              fontWeight: 700,
               '&:hover': {
-                bgcolor: '#4f46e5'
+                bgcolor: '#466146'
               }
             }}
           >

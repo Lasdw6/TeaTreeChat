@@ -20,11 +20,14 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming, onRegenerate })
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div className={`max-w-[80%] rounded-lg p-4 ${
-        isUser 
-          ? 'bg-indigo-600 text-white' 
-          : 'bg-gray-700 text-gray-100'
-      }`}>
+      <div className={`max-w-[80%] rounded-lg p-4`}
+        style={isUser
+          ? { background: '#D6BFA3', color: '#111' }
+          : isAssistant
+            ? { background: 'transparent', color: '#111' }
+            : { background: '#4E342E', color: '#fff' }
+        }
+      >
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-2">

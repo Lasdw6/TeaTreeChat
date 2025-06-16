@@ -75,16 +75,14 @@ def process_chunk_content(chunk: Dict[str, Any]) -> Dict[str, Any]:
     
     return chunk
 
-async def generate_chat_completion(chat_request: ChatRequest) -> AsyncGenerator[Dict[str, Any], None]:
+async def generate_chat_completion(chat_request: ChatRequest, user_api_key: str) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Generate chat completion from OpenRouter API with streaming support.
     """
-    if not OPENROUTER_API_KEY:
-        logger.error("OpenRouter API key not configured")
-        raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
-    
+    if not user_api_key:
+        raise HTTPException(status_code=400, detail="No API key set. Please set your OpenRouter API key in Settings.")
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {user_api_key}",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://t3-chat-clone.com",
         "X-Title": "T3 Chat Clone"
