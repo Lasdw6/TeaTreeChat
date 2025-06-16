@@ -5,6 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from app.core.database import engine, SessionLocal
 from app.models.chat import Base, User, Chat, MessageDB
 from datetime import datetime
+from passlib.context import CryptContext
 
 def init_db():
     # Drop all tables and recreate them
@@ -15,10 +16,12 @@ def init_db():
     # Add test data
     db = SessionLocal()
     try:
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         # Create test user
         test_user = User(
             name="Test User",
-            email="test@example.com"
+            email="test@example.com",
+            hashed_password=pwd_context.hash("testpassword")
         )
         db.add(test_user)
         db.commit()

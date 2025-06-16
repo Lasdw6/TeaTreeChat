@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { Chat } from '../types/chat';
+import { useAuth } from '../app/AuthProvider';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const MAX_CACHED_CHATS = 10;
@@ -37,23 +38,24 @@ interface ChatListProps {
 }
 
 export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh = false, onRefresh }: ChatListProps) {
+  const { user, token, refreshUser } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false);
   const [newChatTitle, setNewChatTitle] = useState('');
-  const [user, setUser] = useState<User>({ id: DEFAULT_USER_ID, name: 'Loading...', email: 'Loading...' });
 
   useEffect(() => {
-    fetchChats();
+    if (token) {
     fetchUserData();
-  }, []);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   useEffect(() => {
-    if (shouldRefresh) {
+    if (user && token) {
       fetchChats();
-      onRefresh?.();
     }
-  }, [shouldRefresh, onRefresh]);
+  }, [user, token]);
 
   // Effect to select the most recent chat when chats are loaded
   useEffect(() => {
@@ -63,30 +65,25 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   }, [chats, selectedChatId, onSelectChat]);
 
   const fetchUserData = async () => {
+    if (!token) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/users/${DEFAULT_USER_ID}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch user data');
-      }
-      const userData = await response.json();
-      setUser(userData);
+      await refreshUser();
     } catch (error) {
-      console.error('Error fetching user data:', error);
-      setUser({ id: DEFAULT_USER_ID, name: 'Error loading user', email: 'Error loading email' });
+      console.error('Error refreshing user data:', error);
     }
   };
 
   const fetchChats = async () => {
+    if (!user || !token) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/chats?user_id=${DEFAULT_USER_ID}`);
+      const response = await fetch(`${API_BASE_URL}/chats?user_id=${user.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (!response.ok) throw new Error('Failed to fetch chats');
       const data = await response.json();
-
-      // Sort chats by creation date (newest first)
       data.sort((a: Chat, b: Chat) => {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
-
       setChats(data);
       if (error) setError(null);
     } catch (err) {
@@ -96,22 +93,20 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   };
 
   const handleCreateChat = async () => {
-    if (!newChatTitle.trim()) return;
-
+    if (!newChatTitle.trim() || !user || !token) return;
     try {
       const response = await fetch(`${API_BASE_URL}/chats/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ 
           title: newChatTitle,
-          user_id: DEFAULT_USER_ID
+          user_id: user.id
         }),
       });
-
       if (!response.ok) throw new Error('Failed to create chat');
-      
       const newChat = await response.json();
       setChats(prev => [...prev, newChat]);
       setIsNewChatDialogOpen(false);
@@ -125,14 +120,13 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
 
   const handleDeleteChat = async (chatId: number, event: React.MouseEvent) => {
     event.stopPropagation();
-
+    if (!token) return;
     try {
       const response = await fetch(`${API_BASE_URL}/chats/${chatId}`, {
         method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
       });
-
       if (!response.ok) throw new Error('Failed to delete chat');
-
       setChats(prev => prev.filter(chat => chat.id !== chatId));
       if (selectedChatId === chatId) {
         onSelectChat(null);
@@ -286,7 +280,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
             fontSize: '1.2rem'
           }}
         >
-          {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+          {user && user.name ? user.name.charAt(0).toUpperCase() : 'U'}
         </Avatar>
         <Box sx={{ minWidth: 0 }}>
           <Typography 
@@ -299,7 +293,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
               color: '#fff'
             }}
           >
-            {user.name || `User ${user.id}`}
+            {user && user.name ? user.name : user && user.id ? `User ${user.id}` : 'User'}
           </Typography>
           <Typography 
             variant="caption" 
@@ -311,7 +305,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
               color: '#9ca3af'
             }}
           >
-            {user.email || 'No email available'}
+            {user && user.email ? user.email : 'No email available'}
           </Typography>
         </Box>
       </Paper>

@@ -18,6 +18,7 @@ from ...services.openrouter import generate_chat_completion
 from sqlalchemy.orm import Session
 from ...core.database import SessionLocal, get_db
 from pydantic import BaseModel
+from .user import get_current_user
 
 router = APIRouter()
 logger = logging.getLogger("chat_router")
@@ -25,6 +26,7 @@ logger = logging.getLogger("chat_router")
 # Pydantic models for request/response
 class ChatCreate(BaseModel):
     title: str
+    model: str = "gpt-3.5-turbo"
     user_id: int
 
 class MessageCreate(BaseModel):
@@ -32,6 +34,7 @@ class MessageCreate(BaseModel):
     role: str
     content: str
     regeneration_id: Optional[str] = None
+    model: str
 
 class ChatResponse(BaseModel):
     id: int
@@ -483,22 +486,19 @@ async def stream_chat_completion(request: ChatRequest):
         }
 
 @router.post("/chats/", response_model=ChatResponse)
-def create_chat(chat: ChatCreate, db: Session = Depends(get_db)):
+def create_chat(chat: ChatCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
-        # Check if user exists
-        user = db.query(User).filter(User.id == chat.user_id).first()
+        user = current_user
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-
-        # Create new chat
         db_chat = Chat(
             title=chat.title,
-            user_id=chat.user_id
+            user_id=user.id,
+            model_used=chat.model
         )
         db.add(db_chat)
         db.commit()
         db.refresh(db_chat)
-        
         return ChatResponse(
             id=db_chat.id,
             title=db_chat.title,
@@ -511,13 +511,11 @@ def create_chat(chat: ChatCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/chats/", response_model=List[ChatResponse])
-def get_chats(user_id: int = Query(None), db: Session = Depends(get_db)):
+def get_chats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
-        query = db.query(Chat)
-        if user_id is not None:
-            query = query.filter(Chat.user_id == user_id)
+        user = current_user
+        query = db.query(Chat).filter(Chat.user_id == user.id)
         chats = query.all()
-        
         return [
             ChatResponse(
                 id=chat.id,
@@ -532,12 +530,11 @@ def get_chats(user_id: int = Query(None), db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/chats/{chat_id}", response_model=ChatDetail)
-def get_chat(chat_id: int, db: Session = Depends(get_db)):
+def get_chat(chat_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
-        chat = db.query(Chat).filter(Chat.id == chat_id).first()
+        chat = db.query(Chat).filter(Chat.id == chat_id, Chat.user_id == current_user.id).first()
         if not chat:
             raise HTTPException(status_code=404, detail="Chat not found")
-        
         return ChatDetail(
             id=chat.id,
             title=chat.title,
@@ -557,80 +554,48 @@ def get_chat(chat_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/chats/{chat_id}/messages", response_model=dict)
-def add_message(chat_id: int, message: MessageCreate, db: Session = Depends(get_db)):
+def add_message(chat_id: int, message: MessageCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
-        # Check if chat exists
-        chat = db.query(Chat).filter(Chat.id == chat_id).first()
+        chat = db.query(Chat).filter(Chat.id == chat_id, Chat.user_id == current_user.id).first()
         if not chat:
-            raise HTTPException(status_code=404, detail="Chat not found")
-
-        # If message ID is provided, update existing message
-        if message.id is not None:
-            existing_message = db.query(MessageDB).filter(
-                MessageDB.id == message.id,
-                MessageDB.chat_id == chat_id
-            ).first()
-            
-            if existing_message:
-                # Update the existing message
-                existing_message.content = message.content
-                existing_message.regeneration_id = message.regeneration_id
-                existing_message.created_at = datetime.utcnow()  # Update timestamp
-                db.commit()
-                db.refresh(existing_message)
-                
-                return {
-                    "id": str(existing_message.id),
-                    "role": existing_message.role,
-                    "content": existing_message.content,
-                    "created_at": existing_message.created_at.isoformat(),
-                    "regeneration_id": existing_message.regeneration_id
-                }
-
-        # Create new message if no ID provided or message not found
+            raise HTTPException(status_code=404, detail="Chat not found or not authorized")
         db_message = MessageDB(
             chat_id=chat_id,
             role=message.role,
             content=message.content,
-            created_at=datetime.utcnow(),
-            regeneration_id=message.regeneration_id
+            model=message.model
         )
         db.add(db_message)
         db.commit()
         db.refresh(db_message)
-        
-        return {
-            "id": str(db_message.id),
-            "role": db_message.role,
-            "content": db_message.content,
-            "created_at": db_message.created_at.isoformat(),
-            "regeneration_id": db_message.regeneration_id
-        }
+        # Update chat's model_used to the model of the last message
+        chat.model_used = message.model
+        db.commit()
+        return {"id": db_message.id}
     except Exception as e:
         db.rollback()
         logger.error(f"Error adding/updating message: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/chats/{chat_id}")
-def delete_chat(chat_id: int, db: Session = Depends(get_db)):
+def delete_chat(chat_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
-        chat = db.query(Chat).filter(Chat.id == chat_id).first()
+        chat = db.query(Chat).filter(Chat.id == chat_id, Chat.user_id == current_user.id).first()
         if not chat:
-            raise HTTPException(status_code=404, detail="Chat not found")
-        
+            raise HTTPException(status_code=404, detail="Chat not found or not authorized")
         db.delete(chat)
         db.commit()
-        return {"message": "Chat deleted successfully"}
+        return {"detail": "Chat deleted"}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/chats/{chat_id}/messages", response_model=List[dict])
-def get_chat_messages(chat_id: int, db: Session = Depends(get_db)):
+def get_chat_messages(chat_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
-        chat = db.query(Chat).filter(Chat.id == chat_id).first()
+        chat = db.query(Chat).filter(Chat.id == chat_id, Chat.user_id == current_user.id).first()
         if not chat:
-            raise HTTPException(status_code=404, detail="Chat not found")
+            raise HTTPException(status_code=404, detail="Chat not found or not authorized")
             
         messages = db.query(MessageDB).filter(MessageDB.chat_id == chat_id).order_by(MessageDB.created_at).all()
         return [

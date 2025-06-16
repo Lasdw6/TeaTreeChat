@@ -53,4 +53,5 @@ class MessageDB(Base):
     content = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     regeneration_id = Column(String, nullable=True)  # ID to group regenerations of the same message
+    model = Column(String, nullable=True)  # Track model used for each message
     chat = relationship("Chat", back_populates="messages") 

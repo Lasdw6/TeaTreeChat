@@ -4,6 +4,7 @@ import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import { useRouter } from 'next/navigation';
 import { Menu as MenuIcon, ChevronLeft as ChevronLeftIcon } from '@mui/icons-material';
+import { useAuth } from '../app/AuthProvider';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const DEFAULT_USER_ID = 1;
@@ -35,6 +36,7 @@ export default function Chat() {
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const router = useRouter();
+  const { token } = useAuth();
 
   useEffect(() => {
     if (selectedChatId) {
@@ -47,7 +49,9 @@ export default function Chat() {
   const fetchChatMessages = async (chatId: number) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/chats/${chatId}/messages`);
+      const response = await fetch(`${API_BASE_URL}/chats/${chatId}/messages`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+      });
       if (!response.ok) throw new Error('Failed to fetch chat messages');
       const data = await response.json();
       
@@ -59,7 +63,9 @@ export default function Chat() {
       setMessages(data);
 
       // Fetch chat details
-      const chatResponse = await fetch(`${API_BASE_URL}/chats/${chatId}`);
+      const chatResponse = await fetch(`${API_BASE_URL}/chats/${chatId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+      });
       if (chatResponse.ok) {
         const chatData = await chatResponse.json();
         setSelectedChat(chatData);
@@ -94,10 +100,12 @@ export default function Chat() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify({
             role: "user",
             content: message,
+            model: selectedModel
           }),
         }
       );
@@ -226,11 +234,13 @@ export default function Chat() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify({
             id: parseInt(tempMessageId),  // Use the same ID
             role: "assistant",
             content: accumulatedContent,
+            model: selectedModel // Use the same model as the user message for now
           }),
         }
       );
@@ -410,6 +420,7 @@ export default function Chat() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify({
             id: parseInt(messageId),

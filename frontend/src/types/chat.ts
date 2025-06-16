@@ -67,11 +67,4 @@ export interface Chat {
   created_at: string;
   message_count: number;
   last_message: string | null;
-}
-
-export interface Message {
-  id: number;
-  role: 'user' | 'assistant';
-  content: string;
-  created_at: string;
 } 
