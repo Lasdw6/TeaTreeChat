@@ -1,8 +1,8 @@
 "use client";
-import { useAuth } from "../AuthProvider";
+import { useAuth } from "@/app/AuthProvider";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import Chat from "../../components/Chat";
+import Chat from "@/components/Chat";
 import { Box, Paper, Typography, TextField, Button, Tabs, Tab, Alert, Dialog, DialogTitle, DialogContent } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import Link from 'next/link';
