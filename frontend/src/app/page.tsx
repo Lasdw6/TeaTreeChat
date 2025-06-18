@@ -8,7 +8,6 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import TeaTreeLogo from "@/components/TeaTreeLogo";
 import { useTheme } from '@mui/material/styles';
 import Link from 'next/link';
-import SettingsIcon from '@mui/icons-material/Settings';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -23,17 +22,7 @@ export default function LandingPage() {
       justifyContent: 'center',
       px: 2
     }}>
-      <Box sx={{ width: '100%', display: 'flex', justifyContent: 'flex-end', p: 2, position: 'absolute', top: 0, right: 0, zIndex: 10 }}>
-        <Link href="/settings" passHref legacyBehavior>
-          <Button
-            startIcon={<SettingsIcon />}
-            sx={{ bgcolor: '#D6BFA3', color: '#4E342E', fontWeight: 600, borderRadius: 2, '&:hover': { bgcolor: '#bfae8c' } }}
-            variant="contained"
-          >
-            Settings
-          </Button>
-        </Link>
-      </Box>
+
       <Stack direction={isMobile ? 'column' : 'row'} spacing={8} alignItems="center" justifyContent="center" sx={{ width: '100%', maxWidth: 1200 }}>
         {/* Left: Headline, tagline, CTA */}
         <Box sx={{ flex: 1, minWidth: 320, maxWidth: 500, textAlign: isMobile ? 'center' : 'left' }}>

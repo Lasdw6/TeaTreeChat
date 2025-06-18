@@ -1,11 +1,12 @@
 "use client";
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AuthContextType, User } from '../types/auth';
-import { loginUser, registerUser, getCurrentUser, updateApiKey } from '../lib/api';
+import { AuthContextType, User } from '@/types/auth';
+import { loginUser, registerUser, getCurrentUser, updateApiKey } from '@/lib/api';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+console.log('AuthProvider API_BASE_URL:', API_BASE_URL);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);

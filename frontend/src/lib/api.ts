@@ -1,4 +1,4 @@
-import { ChatRequest, ChatResponse, Message, Model, StreamingChunk } from '../types/chat';
+import { ChatRequest, ChatResponse, Message, Model, StreamingChunk } from '@/types/chat';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
