@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: teatree-chat-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash start.sh
+    plan: free
+    region: oregon
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: teatree-chat-db
+          property: connectionString
+      - key: ALLOWED_ORIGINS
+        value: https://your-frontend-url.com
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FERNET_KEY
+        generateValue: true
+
+databases:
+  - name: teatree-chat-db
+    databaseName: teatree_chat
+    user: teatree_user
+    plan: free 

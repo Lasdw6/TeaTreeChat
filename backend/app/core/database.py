@@ -6,15 +6,29 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Use SQLite database
-DATABASE_URL = "sqlite:///./chat.db"
+# Get database URL from environment variable, fallback to SQLite for local development
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./chat.db")
 
-# Create engine
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},  # Needed for SQLite
-    echo=True  # Set to False in production
-)
+# Handle PostgreSQL URL format (Render provides postgresql://, but SQLAlchemy needs postgresql+psycopg2://)
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+# Create engine with appropriate settings
+if DATABASE_URL.startswith("sqlite"):
+    # SQLite configuration for local development
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},  # Needed for SQLite
+        echo=False  # Set to False in production
+    )
+else:
+    # PostgreSQL configuration for production
+    engine = create_engine(
+        DATABASE_URL,
+        echo=False,  # Set to False in production
+        pool_size=10,
+        max_overflow=20
+    )
 
 # Create session factory
 SessionLocal = sessionmaker(
