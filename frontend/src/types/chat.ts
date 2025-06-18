@@ -6,6 +6,7 @@ export interface Message {
   content: string;
   createdAt?: Date;
   regeneration_id?: string;
+  model?: string;
 }
 
 export interface ChatRequest {

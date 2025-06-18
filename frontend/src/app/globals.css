@@ -150,4 +150,23 @@ html, body {
   .markdown-content td {
     @apply border border-gray-700 px-4 py-2;
   }
+
+  /* Custom scrollbar for model selector */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #4E342E;
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #D6BFA3;
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #bfae8c;
+  }
 } 

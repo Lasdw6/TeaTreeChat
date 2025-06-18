@@ -20,10 +20,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getCurrentUser(storedToken)
         .then(user => {
           setUser(user);
-          setApiKeyState(user.api_key || storedApiKey || null);
-          if (user.api_key) {
-            localStorage.setItem('apiKey', user.api_key);
-          } else if (storedApiKey) {
+          setApiKeyState(storedApiKey || null);
+          if (storedApiKey) {
             localStorage.setItem('apiKey', storedApiKey);
           } else {
             localStorage.removeItem('apiKey');
@@ -58,25 +56,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (user) {
-      setApiKeyState(user.api_key || null);
-      if (user.api_key) {
-        localStorage.setItem('apiKey', user.api_key);
-      } else {
-        localStorage.removeItem('apiKey');
-      }
+      // API key state is managed separately from user object
+      // since backend doesn't return the actual API key
     }
   }, [user]);
 
   const login = async (email: string, password: string) => {
-    const data = await loginUser(email, password);
-    setToken(data.access_token);
-    const user = await getCurrentUser(data.access_token);
-    setUser(user);
+    try {
+      const data = await loginUser(email, password);
+      setToken(data.access_token);
+      const user = await getCurrentUser(data.access_token);
+      console.log('Login - user data received:', user);
+      setUser(user);
+      // API key is managed separately since backend doesn't return it
+      // Keep existing localStorage API key if it exists
+      const storedApiKey = typeof window !== 'undefined' ? localStorage.getItem('apiKey') : null;
+      console.log('Login - stored API key:', storedApiKey);
+      setApiKeyState(storedApiKey);
+    } catch (err: any) {
+      if (err?.response && err.response.data && err.response.data.detail) {
+        throw new Error(err.response.data.detail);
+      }
+      throw new Error(err?.message || "Login failed");
+    }
   };
 
   const register = async (name: string, email: string, password: string) => {
-    await registerUser(name, email, password);
-    await login(email, password);
+    try {
+      await registerUser(name, email, password);
+      await login(email, password);
+    } catch (err: any) {
+      if (err?.response && err.response.data && err.response.data.detail) {
+        throw new Error(err.response.data.detail);
+      }
+      throw new Error(err?.message || "Registration failed");
+    }
   };
 
   const logout = () => {

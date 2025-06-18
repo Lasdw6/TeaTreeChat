@@ -16,10 +16,12 @@ import {
   Avatar,
   Paper,
   Divider,
+  Chip,
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, CachedRounded as CacheIcon } from '@mui/icons-material';
 import { Chat } from '../types/chat';
 import { useAuth } from '../app/AuthProvider';
+import chatCache from '../lib/chatCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const MAX_CACHED_CHATS = 10;
@@ -44,15 +46,16 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   const [error, setError] = useState<string | null>(null);
   const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false);
   const [newChatTitle, setNewChatTitle] = useState('');
-  const [hasKey, setHasKey] = useState<boolean>(false);
-
-  useEffect(() => {
-    setHasKey(!!(apiKey || (typeof window !== 'undefined' && localStorage.getItem('apiKey'))));
-  }, [apiKey]);
+  const [isLoadingFromCache, setIsLoadingFromCache] = useState(true);
+  const [usingCache, setUsingCache] = useState(false);
+  const [isRenameChatDialogOpen, setIsRenameChatDialogOpen] = useState(false);
+  const [renameChatId, setRenameChatId] = useState<number | null>(null);
+  const [renameChatTitle, setRenameChatTitle] = useState('');
+  const hasKey = !!(user?.has_api_key || apiKey || (typeof window !== 'undefined' && localStorage.getItem('apiKey')));
 
   useEffect(() => {
     if (user && token) {
-      fetchChats();
+      loadChats();
     }
   }, [user, token]);
 
@@ -61,6 +64,39 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       onSelectChat(chats[0].id);
     }
   }, [chats, selectedChatId, onSelectChat]);
+
+  // Handle refresh requests from parent component
+  useEffect(() => {
+    if (shouldRefresh && onRefresh) {
+      console.log('Refreshing chat list due to shouldRefresh=true');
+      fetchChats().then(() => {
+        onRefresh();
+      });
+    }
+  }, [shouldRefresh, onRefresh]);
+
+  const loadChats = async () => {
+    if (!user || !token) return;
+    
+    // First, try to load from cache for instant display
+    if (chatCache.hasCachedData()) {
+      const cachedChats = chatCache.getCachedChats();
+      console.log(`Loaded ${cachedChats.length} chats from cache`);
+      setChats(cachedChats);
+      setUsingCache(true);
+      setIsLoadingFromCache(false);
+      
+      // Mark the first chat as accessed if no chat is selected
+      if (cachedChats.length > 0 && !selectedChatId) {
+        chatCache.markAsAccessed(cachedChats[0].id);
+      }
+    } else {
+      setIsLoadingFromCache(false);
+    }
+    
+    // Then fetch fresh data in the background
+    await fetchChats();
+  };
 
   const fetchChats = async () => {
     if (!user || !token) return;
@@ -73,11 +109,23 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       data.sort((a: Chat, b: Chat) => {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
+      
+      // Update cache with fresh data
+      chatCache.updateChats(data);
+      console.log(`Fetched ${data.length} chats from API and updated cache`);
+      
       setChats(data);
+      setUsingCache(false);
       if (error) setError(null);
     } catch (err) {
-      setError('Failed to load chats. Please try again later.');
-      console.error(err);
+      // If we have cached data and API fails, keep using cache
+      if (chatCache.hasCachedData()) {
+        console.log('API failed, keeping cached data');
+        setError('Using cached data - connection issues detected');
+      } else {
+        setError('Failed to load chats. Please try again later.');
+        console.error(err);
+      }
     }
   };
 
@@ -92,12 +140,17 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         },
         body: JSON.stringify({ 
           title: newChatTitle,
-          user_id: user.id
+          user_id: user.id,
+          model: "meta-llama/llama-3.3-70b-instruct:free"
         }),
       });
       if (!response.ok) throw new Error('Failed to create chat');
       const newChat = await response.json();
-      setChats(prev => [...prev, newChat]);
+      
+      // Add to cache and update local state
+      chatCache.addNewChat(newChat);
+      setChats(prev => [newChat, ...prev]);
+      
       setIsNewChatDialogOpen(false);
       setNewChatTitle('');
       onSelectChat(newChat.id);
@@ -116,7 +169,11 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to delete chat');
+      
+      // Remove from cache and update local state
+      chatCache.removeChat(chatId);
       setChats(prev => prev.filter(chat => chat.id !== chatId));
+      
       if (selectedChatId === chatId) {
         onSelectChat(null);
       }
@@ -124,6 +181,51 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       console.error('Error deleting chat:', error);
       setError(error instanceof Error ? error.message : 'Failed to delete chat');
     }
+  };
+
+  const handleRenameChat = async (chatId: number, event: React.MouseEvent) => {
+    event.stopPropagation();
+    const chat = chats.find(c => c.id === chatId);
+    if (chat) {
+      setRenameChatId(chatId);
+      setRenameChatTitle(chat.title || '');
+      setIsRenameChatDialogOpen(true);
+    }
+  };
+
+  const handleConfirmRename = async () => {
+    if (!renameChatTitle.trim() || !renameChatId || !token) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/chats/${renameChatId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ title: renameChatTitle }),
+      });
+      if (!response.ok) throw new Error('Failed to rename chat');
+      const updatedChat = await response.json();
+      
+      // Update local state and cache
+      setChats(prev => prev.map(chat => 
+        chat.id === renameChatId ? { ...chat, title: updatedChat.title } : chat
+      ));
+      chatCache.updateChatTitle(renameChatId, updatedChat.title);
+      
+      setIsRenameChatDialogOpen(false);
+      setRenameChatId(null);
+      setRenameChatTitle('');
+    } catch (error) {
+      console.error('Error renaming chat:', error);
+      setError(error instanceof Error ? error.message : 'Failed to rename chat');
+    }
+  };
+
+  const handleChatSelect = (chatId: number) => {
+    // Mark as accessed in cache for better ordering
+    chatCache.markAsAccessed(chatId);
+    onSelectChat(chatId);
   };
 
   return (
@@ -137,8 +239,6 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       height: '100vh',
       color: '#fff',
       boxShadow: '4px 0 16px 0 rgba(0,0,0,0.10)',
-      borderTopRightRadius: 16,
-      borderBottomRightRadius: 16,
       overflow: 'hidden',
       position: 'relative',
       '::before': {
@@ -158,7 +258,23 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         borderBottom: 1,
         borderColor: '#333'
       }}>
-        <Typography variant="h6" sx={{ color: '#D6BFA3', fontWeight: 600 }}>Chats</Typography>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Typography variant="h6" sx={{ color: '#D6BFA3', fontWeight: 600 }}>Chats</Typography>
+          {usingCache && (
+            <Chip
+              icon={<CacheIcon />}
+              label="Cached"
+              size="small"
+              sx={{
+                bgcolor: '#5B6F56',
+                color: '#D6BFA3',
+                '& .MuiChip-icon': { color: '#D6BFA3' },
+                fontSize: '0.7rem',
+                height: '20px'
+              }}
+            />
+          )}
+        </div>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -194,6 +310,22 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       <List sx={{ 
         overflow: 'auto', 
         flex: 1,
+        '&::-webkit-scrollbar': {
+          width: '6px',
+        },
+        '&::-webkit-scrollbar-track': {
+          background: '#4E342E',
+          borderRadius: '3px',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          background: '#D6BFA3',
+          borderRadius: '3px',
+          '&:hover': {
+            background: '#bfae8c',
+          },
+        },
+        scrollbarWidth: 'thin',
+        scrollbarColor: '#D6BFA3 #4E342E',
         '& .MuiListItem-root': {
           px: 1
         }
@@ -204,32 +336,49 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
             disablePadding
             sx={{
               mb: 0.5,
-              '&:hover .delete-button': {
+              '&:hover .action-buttons': {
                 opacity: 1,
               },
             }}
             secondaryAction={
-              <IconButton
-                edge="end"
-                aria-label="delete"
-                onClick={(e) => handleDeleteChat(chat.id, e)}
-                className="delete-button"
-                sx={{
-                  opacity: 0,
-                  transition: 'opacity 0.2s',
-                  color: '#ef4444',
-                  '&:hover': {
-                    bgcolor: 'rgba(239, 68, 68, 0.1)'
-                  }
-                }}
-              >
-                <DeleteIcon />
-              </IconButton>
+              <Box className="action-buttons" sx={{ 
+                display: 'flex', 
+                opacity: 0, 
+                transition: 'opacity 0.2s',
+                gap: 0.5
+              }}>
+                                                  <IconButton
+                  size="small"
+                  aria-label="rename"
+                  onClick={(e) => handleRenameChat(chat.id, e)}
+                  sx={{
+                    color: selectedChatId === chat.id ? '#4E342E' : '#D6BFA3',
+                    '&:hover': {
+                      bgcolor: selectedChatId === chat.id ? 'rgba(78, 52, 46, 0.1)' : 'rgba(214, 191, 163, 0.1)'
+                    }
+                  }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  aria-label="delete"
+                  onClick={(e) => handleDeleteChat(chat.id, e)}
+                  sx={{
+                    color: '#ef4444',
+                    '&:hover': {
+                      bgcolor: 'rgba(239, 68, 68, 0.1)'
+                    }
+                  }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Box>
             }
           >
             <ListItemButton
               selected={selectedChatId === chat.id}
-              onClick={() => onSelectChat(chat.id)}
+              onClick={() => handleChatSelect(chat.id)}
               sx={{
                 borderRadius: 2,
                 bgcolor: selectedChatId === chat.id ? '#D6BFA3' : 'transparent',
@@ -250,7 +399,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
                   },
                 },
                 '&:hover': {
-                  bgcolor: '#D6BFA3',
+                  bgcolor: 'rgba(91,111,86,0.1)',
                   color: '#5B6F56',
                   boxShadow: '0 4px 16px 0 rgba(91,111,86,0.13)',
                   transform: 'scale(1.03)',
@@ -269,6 +418,10 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
                       color: selectedChatId === chat.id ? '#5B6F56' : '#D6BFA3',
                       fontWeight: 500,
                       fontSize: '0.95rem',
+                      transition: 'color 0.2s',
+                      '.MuiListItemButton-root:hover &': {
+                        color: '#5B6F56',
+                      },
                     }}
                   >
                     {chat.title || 'New Chat'}
@@ -280,7 +433,6 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         ))}
       </List>
 
-      <Divider sx={{ my: 3, bgcolor: '#D6BFA3', opacity: 0.5, borderRadius: 2 }} />
       <Paper
         elevation={1}
         sx={{
@@ -418,6 +570,76 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
             }}
           >
             Create
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Rename Chat Dialog */}
+      <Dialog 
+        open={isRenameChatDialogOpen} 
+        onClose={() => setIsRenameChatDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            bgcolor: '#4E342E',
+            color: '#D6BFA3',
+            borderRadius: 3,
+            boxShadow: '0 4px 16px 0 rgba(91,111,86,0.25)'
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: '#D6BFA3', fontWeight: 700 }}>Rename Chat</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Chat Title"
+            fullWidth
+            variant="outlined"
+            value={renameChatTitle}
+            onChange={(e) => setRenameChatTitle(e.target.value)}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                background: '#4E342E',
+                color: '#fff',
+                '& fieldset': {
+                  borderColor: '#333',
+                },
+                '&:hover fieldset': {
+                  borderColor: '#D6BFA3',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: '#D6BFA3',
+                },
+              },
+              '& .MuiInputLabel-root': {
+                color: '#D6BFA3',
+              },
+              '& .MuiInputLabel-root.Mui-focused': {
+                color: '#D6BFA3',
+              },
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setIsRenameChatDialogOpen(false)}
+            sx={{ color: '#9ca3af' }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleConfirmRename} 
+            variant="contained"
+            sx={{
+              bgcolor: '#5B6F56',
+              color: '#D6BFA3',
+              fontWeight: 700,
+              '&:hover': {
+                bgcolor: '#466146'
+              }
+            }}
+          >
+            Rename
           </Button>
         </DialogActions>
       </Dialog>

@@ -7,10 +7,11 @@ import { Menu as MenuIcon, ChevronLeft as ChevronLeftIcon } from '@mui/icons-mat
 import { useAuth } from '../app/AuthProvider';
 import { useTheme } from '@mui/material/styles';
 import { Snackbar, Alert } from '@mui/material';
+import chatCache from '../lib/chatCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const DEFAULT_USER_ID = 1;
-const DEFAULT_MODEL = "meta-llama/llama-3.3-8b-instruct:free";
+const DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
 
 interface Message {
   id: string;
@@ -18,6 +19,7 @@ interface Message {
   content: string;
   created_at: string;
   chat_id: number;
+  model?: string;
 }
 
 interface Chat {
@@ -38,7 +40,7 @@ export default function Chat() {
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const router = useRouter();
-  const { token } = useAuth();
+  const { user, token } = useAuth();
   const theme = useTheme();
   const [errorText, setErrorText] = useState<string | null>(null);
   const idCounter = useRef(0);
@@ -49,13 +51,43 @@ export default function Chat() {
     return `msg_${idCounter.current}`;
   }
 
+  // Function to get the last used model from messages
+  const getLastUsedModel = (messages: Message[]): string => {
+    console.log('Getting last used model from messages:', messages.map(m => ({ id: m.id, role: m.role, model: m.model })));
+    // Look for the most recent message with a model (going backwards)
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].model) {
+        console.log(`Found last used model: ${messages[i].model}`);
+        return messages[i].model!;
+      }
+    }
+    // If no model found in messages, return default
+    console.log(`No model found in messages, using default: ${DEFAULT_MODEL}`);
+    return DEFAULT_MODEL;
+  };
+
   useEffect(() => {
     if (selectedChatId) {
       fetchChatMessages(selectedChatId);
     } else {
       setMessages([]);
+      // Reset to default model when no chat is selected
+      setSelectedModel(DEFAULT_MODEL);
     }
   }, [selectedChatId]);
+
+  // Update selected model based on last message when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastUsedModel = getLastUsedModel(messages);
+      if (lastUsedModel !== selectedModel) {
+        setSelectedModel(lastUsedModel);
+      }
+    } else if (selectedChatId) {
+      // If chat is selected but no messages, use default
+      setSelectedModel(DEFAULT_MODEL);
+    }
+  }, [messages, selectedChatId]);
 
   // On mount and when localStorage changes, update apiKey from localStorage
   useEffect(() => {
@@ -72,17 +104,30 @@ export default function Chat() {
   const fetchChatMessages = async (chatId: number) => {
     try {
       setIsLoading(true);
+      
+      // First, try to load from cache for instant display
+      const cachedChat = chatCache.getCachedChatWithMessages(chatId);
+      if (cachedChat?.messages) {
+        console.log(`Loading messages for chat ${chatId} from cache`);
+        setMessages(cachedChat.messages);
+        setSelectedChat({
+          id: cachedChat.id,
+          title: cachedChat.title,
+          created_at: cachedChat.created_at,
+          message_count: cachedChat.message_count || 0,
+          last_message: cachedChat.last_message || null
+        });
+      }
+      
+      // Then fetch fresh data
       const response = await fetch(`${API_BASE_URL}/chats/${chatId}/messages`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       });
       if (!response.ok) throw new Error('Failed to fetch chat messages');
       const data = await response.json();
       
-      // Sort messages by created_at
-      data.sort((a: Message, b: Message) => 
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      );
-
+      // Cache the messages for quick access later
+      chatCache.cacheMessages(chatId, data);
       setMessages(data);
 
       // Fetch chat details
@@ -95,6 +140,12 @@ export default function Chat() {
       }
     } catch (error) {
       console.error('Error fetching chat messages:', error);
+      // If we have cached messages and API fails, keep using them
+      const cachedChat = chatCache.getCachedChatWithMessages(chatId);
+      if (cachedChat?.messages && messages.length === 0) {
+        console.log('API failed, using cached messages');
+        setMessages(cachedChat.messages);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -103,22 +154,24 @@ export default function Chat() {
   const handleSend = async (message: string) => {
     if (!message.trim() || !selectedChatId) return;
 
-    // Check for API key in localStorage
-    if (!apiKey) {
+    // Check if user has API key set in their account
+    if (!user?.has_api_key) {
       const errMsg = 'No API key detected. Please set your OpenRouter API key in Settings.';
       const userMessage: Message = {
         id: getUniqueId(),
         role: 'user',
         content: message,
         created_at: new Date().toISOString(),
-        chat_id: selectedChatId
+        chat_id: selectedChatId,
+        model: selectedModel
       };
       setMessages(prev => [...prev, userMessage, {
         id: getUniqueId(),
         role: 'assistant',
         content: errMsg,
         created_at: new Date().toISOString(),
-        chat_id: selectedChatId
+        chat_id: selectedChatId,
+        model: selectedModel
       }]);
       setErrorText(errMsg);
       return;
@@ -134,7 +187,8 @@ export default function Chat() {
         role: "user",
         content: message,
         created_at: new Date().toISOString(),
-        chat_id: selectedChatId
+        chat_id: selectedChatId,
+        model: selectedModel
       };
 
       // Add user message to chat
@@ -163,7 +217,8 @@ export default function Chat() {
           role: "assistant",
           content: errMsg,
           created_at: new Date().toISOString(),
-          chat_id: selectedChatId
+          chat_id: selectedChatId,
+          model: selectedModel
         };
         setMessages(prev => [...prev, userMessage, newSystemMsg]);
         setErrorText(errMsg);
@@ -181,7 +236,8 @@ export default function Chat() {
         role: "assistant",
         content: "",
         created_at: new Date().toISOString(),
-        chat_id: selectedChatId
+        chat_id: selectedChatId,
+        model: selectedModel
       };
       setMessages(prev => [...prev, tempMessage]);
 
@@ -190,8 +246,7 @@ export default function Chat() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...(apiKey ? { 'X-API-KEY': apiKey } : {})
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           model: selectedModel,
@@ -217,7 +272,8 @@ export default function Chat() {
             role: "assistant",
             content: errMsg,
             created_at: new Date().toISOString(),
-            chat_id: selectedChatId
+            chat_id: selectedChatId,
+            model: selectedModel
           }
         ]);
         setErrorText(errMsg);
@@ -318,16 +374,31 @@ export default function Chat() {
             ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify({
-            id: parseInt(tempMessageId),  // Use the same ID
             role: "assistant",
             content: accumulatedContent,
-            model: selectedModel // Use the same model as the user message for now
+            model: selectedModel
           }),
         }
       );
 
       if (!assistantResponse.ok) {
         throw new Error("Failed to add AI message");
+      }
+
+      // Get the database ID and update the message
+      const savedMessage = await assistantResponse.json();
+      console.log('Saved message response (handleSend):', savedMessage, 'tempMessageId:', tempMessageId);
+      if (savedMessage.id) {
+        setMessages(prev => {
+          const updated = prev.map(msg => {
+            if (msg.id === tempMessageId) {
+              console.log('Updating message ID from', msg.id, 'to', savedMessage.id.toString());
+              return { ...msg, id: savedMessage.id.toString() };
+            }
+            return msg;
+          });
+          return updated;
+        });
       }
 
       // Clear streaming state
@@ -360,36 +431,54 @@ export default function Chat() {
     const messageIndex = messages.findIndex(msg => msg.id.toString() === messageId);
     if (messageIndex === -1) return;
     
+    const messageToRegenerate = messages[messageIndex];
+    
+    // Only allow regeneration of messages that have database IDs (numeric)
+    if (typeof messageToRegenerate.id === 'string' && messageToRegenerate.id.startsWith('msg_')) {
+      console.error('Cannot regenerate temporary message:', messageToRegenerate.id);
+      setErrorText('Cannot regenerate a message that is still being processed. Please wait for it to complete.');
+      setIsLoading(false);
+      return;
+    }
+    
     // Keep only messages before the one being regenerated
     const messagesToKeep = messages.slice(0, messageIndex);
-    const lastUserMessage = messagesToKeep.reverse().find(msg => msg.role === 'user');
+    const lastUserMessage = [...messagesToKeep].reverse().find(msg => msg.role === 'user');
     
     if (!lastUserMessage) return;
 
     try {
+      // Use the database ID for deletion
+      const dbMessageId = messageToRegenerate.id;
+      
       // Start deletion in parallel with streaming
       const deletePromise = fetch(
-        `${API_BASE_URL}/chats/${selectedChatId}/messages/regenerate/${messageId}`,
+        `${API_BASE_URL}/chats/${selectedChatId}/messages/regenerate/${dbMessageId}`,
         {
           method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          }
         }
       );
 
       // Update UI immediately to remove the current message and all messages after it
       setMessages(messagesToKeep);
 
-      // Set streaming state
-      setStreamingMessageId(messageId);
-
       // Create a temporary message for streaming
+      const tempMessageId = getUniqueId();
       const tempMessage: Message = {
-        id: getUniqueId(),
+        id: tempMessageId,
         role: "assistant",
         content: "",
         created_at: new Date().toISOString(),
         chat_id: selectedChatId
       };
       setMessages(prev => [...prev, tempMessage]);
+
+      // Set streaming state with the temp message ID
+      setStreamingMessageId(tempMessageId);
 
       // Start streaming in parallel with deletion
       const aiResponse = await fetch(`${API_BASE_URL}/completions`, {
@@ -415,16 +504,14 @@ export default function Chat() {
         const errMsg = errorData.detail || "Failed to get AI response";
         console.error("AI Response Error:", errorData);
         // Show in UI
-        setMessages(prev => [
-          ...prev.filter(msg => msg.id !== messageId),
-          {
-            id: getUniqueId(),
-            role: "assistant",
-            content: errMsg,
-            created_at: new Date().toISOString(),
-            chat_id: selectedChatId
-          }
-        ]);
+        setMessages(prev => 
+          prev.map(msg => {
+            if (msg.id === tempMessageId) {
+              return { ...msg, content: errMsg };
+            }
+            return msg;
+          })
+        );
         setErrorText(errMsg);
         throw new Error(errMsg);
       }
@@ -432,7 +519,24 @@ export default function Chat() {
       // Wait for deletion to complete
       const deleteResponse = await deletePromise;
       if (!deleteResponse.ok) {
-        throw new Error("Failed to delete messages");
+        let errorData: any = {};
+        let errorText = '';
+        try {
+          errorText = await deleteResponse.text();
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          errorData = { rawError: errorText };
+        }
+        
+        console.error("Delete response error:", {
+          status: deleteResponse.status,
+          statusText: deleteResponse.statusText,
+          errorData,
+          rawErrorText: errorText
+        });
+        
+        const errorMsg = errorData.detail || errorData.message || deleteResponse.statusText || 'Unknown error';
+        throw new Error(`Failed to delete messages: ${errorMsg}`);
       }
 
       const reader = aiResponse.body?.getReader();
@@ -446,16 +550,12 @@ export default function Chat() {
 
       const updateMessage = (content: string) => {
         setMessages(prevMessages => {
-          // Keep all messages up to the regeneration point
-          const messagesUpToRegeneration = prevMessages.slice(0, messageIndex);
-          // Add the streaming message
-          return [...messagesUpToRegeneration, {
-            id: getUniqueId(),
-            role: "assistant",
-            content: content,
-            created_at: new Date().toISOString(),
-            chat_id: selectedChatId
-          }];
+          return prevMessages.map(msg => {
+            if (msg.id === tempMessageId) {
+              return { ...msg, content };
+            }
+            return msg;
+          });
         });
       };
 
@@ -531,17 +631,28 @@ export default function Chat() {
             ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify({
-            id: parseInt(messageId),
             role: "assistant",
             content: accumulatedContent,
-            regeneration_id: model || selectedModel,
-            chat_id: selectedChatId
+            model: model || selectedModel
           }),
         }
       );
 
       if (!assistantResponse.ok) {
         throw new Error("Failed to update AI message");
+      }
+
+      // Get the database ID and update the message
+      const savedMessage = await assistantResponse.json();
+      if (savedMessage.id) {
+        setMessages(prev => 
+          prev.map(msg => {
+            if (msg.id === tempMessageId) {
+              return { ...msg, id: savedMessage.id.toString() };
+            }
+            return msg;
+          })
+        );
       }
 
       // Clear streaming state
@@ -558,7 +669,7 @@ export default function Chat() {
   };
 
   const handleFork = async (messageId: string) => {
-    if (!selectedChatId) return;
+    if (!selectedChatId || !user || !token) return;
 
     try {
       // Create a new chat
@@ -566,11 +677,12 @@ export default function Chat() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           title: `Fork of ${selectedChat?.title || 'Chat'}`,
           model: selectedModel,
-          user_id: DEFAULT_USER_ID
+          user_id: user.id
         }),
       });
 
@@ -590,12 +702,12 @@ export default function Chat() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
           },
           body: JSON.stringify({
             role: message.role,
             content: message.content,
-            chat_id: newChat.id,
-            user_id: DEFAULT_USER_ID
+            model: message.model || selectedModel
           }),
         });
 
@@ -604,7 +716,8 @@ export default function Chat() {
         }
       }
 
-      // Select the new chat
+      // Add to cache and select the new chat
+      chatCache.addNewChat(newChat);
       setSelectedChatId(newChat.id);
       // Refresh chat list
       setShouldRefreshChats(true);
@@ -620,9 +733,17 @@ export default function Chat() {
   return (
     <div className="flex h-screen" style={{ background: 'transparent' }}>
       {/* Collapsible Sidebar */}
-      <div className={`transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col`} style={{ background: 'rgba(30,32,40,0.92)' }}>
+      <div className={`transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col`} style={{ background: '#D6BFA3', paddingRight: '4px', paddingTop: '4px' }}>
         <button
-          className="p-2 w-full text-left focus:outline-none text-gray-400 hover:text-white"
+          className="p-2 w-full text-left focus:outline-none hover:text-white cursor-pointer"
+          style={{ 
+            color: '#4E342E', 
+            backgroundColor: '#D6BFA3',
+            transition: 'all 0.2s ease',
+            border: 'none',
+            zIndex: 10,
+            position: 'relative'
+          }}
           onClick={() => setSidebarOpen((open) => !open)}
         >
           {sidebarOpen ? <ChevronLeftIcon /> : <MenuIcon />}
@@ -645,8 +766,8 @@ export default function Chat() {
             </div>
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="w-full max-w-2xl rounded-2xl shadow-lg bg-gray-800">
+          <div className="flex-1 flex flex-col items-center justify-center min-h-0 py-8">
+            <div className="w-full max-w-2xl rounded-2xl shadow-lg bg-gray-800" style={{ marginTop: '20vh' }}>
               <MessageInput
                 onSendMessage={handleSend}
                 disabled={isLoading}

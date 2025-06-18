@@ -7,6 +7,7 @@ import { Box, Paper, Typography, TextField, Button, Tabs, Tab, Alert, Dialog, Di
 import { useTheme } from '@mui/material/styles';
 import Link from 'next/link';
 import SettingsIcon from '@mui/icons-material/Settings';
+import React from "react";
 
 export default function ChatPage() {
   const { user, token, login, register } = useAuth();
@@ -22,6 +23,9 @@ export default function ChatPage() {
   const [open, setOpen] = useState(!user || !token);
   const theme = useTheme();
 
+  const emailRegex = /^[^@]+@[^@]+\.[^@]+$/;
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
+
   useEffect(() => {
     setOpen(!user || !token);
   }, [user, token]);
@@ -30,6 +34,16 @@ export default function ChatPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    if (!emailRegex.test(loginEmail)) {
+      setError("Please enter a valid email address.");
+      setLoading(false);
+      return;
+    }
+    if (!loginPassword) {
+      setError("Please enter your password.");
+      setLoading(false);
+      return;
+    }
     try {
       await login(loginEmail, loginPassword);
     } catch (err: any) {
@@ -43,6 +57,21 @@ export default function ChatPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    if (!emailRegex.test(registerEmail)) {
+      setError("Please enter a valid email address.");
+      setLoading(false);
+      return;
+    }
+    if (!registerName) {
+      setError("Please enter your name.");
+      setLoading(false);
+      return;
+    }
+    if (!passwordRegex.test(registerPassword)) {
+      setError("Password must be at least 8 characters long and include uppercase, lowercase, digit, and special character.");
+      setLoading(false);
+      return;
+    }
     try {
       await register(registerName, registerEmail, registerPassword);
     } catch (err: any) {

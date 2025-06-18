@@ -7,24 +7,21 @@ import { useRouter } from 'next/navigation';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 export default function SettingsPage() {
-  const { apiKey, setApiKey, deleteAccount, logout, user } = useAuth();
-  const [keyInput, setKeyInput] = useState(user?.api_key || "");
+  const { apiKey, setApiKey, deleteAccount, logout, user, refreshUser } = useAuth();
+  const [keyInput, setKeyInput] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [hasKey, setHasKey] = useState<boolean>(false);
-  useEffect(() => {
-    setHasKey(!!(apiKey || (typeof window !== 'undefined' && localStorage.getItem('apiKey'))));
-  }, [apiKey]);
   const theme = useTheme();
   const router = useRouter();
 
   useEffect(() => {
-    setKeyInput(user?.api_key || "");
-  }, [user?.api_key]);
+    // Show "..." if user has API key set, otherwise empty
+    setKeyInput(user?.has_api_key ? "••••••••••••••••••••••••••••••••" : "");
+  }, [user]);
 
   const handleSaveKey = async () => {
     await setApiKey(keyInput.trim());
-    setHasKey(!!keyInput.trim());
+    await refreshUser();
   };
 
   const handleDelete = async () => {
@@ -40,6 +37,8 @@ export default function SettingsPage() {
     logout();
     router.push('/chat');
   };
+
+  const hasKey = !!(user?.has_api_key || apiKey || (typeof window !== 'undefined' && localStorage.getItem('apiKey')));
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#5B6F56', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', px: 2 }}>
@@ -69,7 +68,7 @@ export default function SettingsPage() {
           onChange={e => setKeyInput(e.target.value)}
           fullWidth
           margin="normal"
-          placeholder="sk-or-..."
+          placeholder={user?.has_api_key ? "API key is set" : "sk-or-..."}
           InputLabelProps={{ style: { color: theme.palette.text.secondary } }}
           InputProps={{ style: { color: theme.palette.primary.contrastText, background: 'rgba(255,255,255,0.06)', borderRadius: 2 } }}
           sx={{ mb: 2 }}

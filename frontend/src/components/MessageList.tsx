@@ -5,7 +5,7 @@ import { Box, Typography, CircularProgress, IconButton, Tooltip, Menu, MenuItem 
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { ContentCopy as CopyIcon, Refresh as RefreshIcon, Check as CheckIcon } from '@mui/icons-material';
-import { getModels } from '@/lib/api';
+// import { getModels } from '@/lib/api';
 
 interface MessageProps {
   message: MessageType;
@@ -54,6 +54,7 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
     <div className={`flex justify-center mb-4`}>
       <div className={`flex flex-col w-[70%]`}>
         <div
+          data-message-id={message.id}
           className={`max-w-full rounded-lg p-4 relative ${
             message.role === 'user'
               ? 'self-end mr-40'
@@ -70,31 +71,43 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
           }
         >
           <div className="prose prose-invert prose-sm max-w-none markdown-content">
-            <ReactMarkdown components={{
-              p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
-              h1: ({ children }) => <h1 className="text-xl font-bold mt-6 mb-4">{children}</h1>,
-              h2: ({ children }) => <h2 className="text-lg font-bold mt-5 mb-3">{children}</h2>,
-              h3: ({ children }) => <h3 className="text-base font-bold mt-4 mb-2">{children}</h3>,
-              ul: ({ children }) => <ul className="list-disc pl-6 mb-4">{children}</ul>,
-              ol: ({ children }) => <ol className="list-decimal pl-6 mb-4">{children}</ol>,
-              code: ({ node, inline, className, children, ...props }) => {
-                const match = /language-(\w+)/.exec(className || '');
-                return !inline ? (
-                  <CodeBlockWithCopy language={match?.[1]}>
-                    {String(children).replace(/\n$/, '')}
-                  </CodeBlockWithCopy>
-                ) : (
-                  <code className="bg-gray-800 px-1.5 py-0.5 rounded text-sm" {...props}>
-                    {children}
-                  </code>
-                );
-              },
-              pre: ({ children }) => <>{children}</>,
-            }}>
-              {processedContent}
-            </ReactMarkdown>
+            {isStreaming && !message.content ? (
+              <div className="flex items-center space-x-2 text-gray-400">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                  <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                </div>
+                <span>Thinking...</span>
+              </div>
+            ) : (
+              <ReactMarkdown 
+                children={processedContent}
+                components={{
+                  p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
+                  h1: ({ children }) => <h1 className="text-xl font-bold mt-6 mb-4">{children}</h1>,
+                  h2: ({ children }) => <h2 className="text-lg font-bold mt-5 mb-3">{children}</h2>,
+                  h3: ({ children }) => <h3 className="text-base font-bold mt-4 mb-2">{children}</h3>,
+                  ul: ({ children }) => <ul className="list-disc pl-6 mb-4">{children}</ul>,
+                  ol: ({ children }) => <ol className="list-decimal pl-6 mb-4">{children}</ol>,
+                  code: ({ node, inline, className, children, ...props }) => {
+                    const match = /language-(\w+)/.exec(className || '');
+                    return !inline ? (
+                      <CodeBlockWithCopy language={match?.[1]}>
+                        {String(children).replace(/\n$/, '')}
+                      </CodeBlockWithCopy>
+                    ) : (
+                      <code className="bg-gray-800 px-1.5 py-0.5 rounded text-sm" {...props}>
+                        {children}
+                      </code>
+                    );
+                  },
+                  pre: ({ children }) => <>{children}</>,
+                }}
+              />
+            )}
           </div>
-          {message.role === 'assistant' && (
+          {message.role === 'assistant' && !isStreaming && (
             <div className="flex justify-start mt-1 space-x-1">
               <Tooltip title={copied ? "Copied!" : "Copy message"}>
                 <IconButton
@@ -257,6 +270,8 @@ const MessageList: React.FC<MessageListProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [models, setModels] = useState<Model[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+  const [lastMessageCount, setLastMessageCount] = useState(0);
+  const [lastMessagesHash, setLastMessagesHash] = useState<string>('');
 
   useEffect(() => {
     setIsMounted(true);
@@ -267,8 +282,9 @@ const MessageList: React.FC<MessageListProps> = ({
 
     const fetchModels = async () => {
       try {
-        const modelsList = await getModels();
-        setModels(modelsList);
+        // const modelsList = await getModels();
+        // setModels(modelsList);
+        setModels([]); // Temporary fix
       } catch (err) {
         console.error('Failed to load models:', err);
       }
@@ -277,17 +293,62 @@ const MessageList: React.FC<MessageListProps> = ({
     fetchModels();
   }, [isMounted]);
 
+  // Scroll to bottom when messages change (new chat opened, messages loaded from cache, or new messages added)
   useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    if (!containerRef.current || messages.length === 0) return;
+
+    // Create a hash of message IDs to detect when messages actually change
+    const messagesHash = messages.map(m => m.id).join(',');
+    const isNewMessageSet = messagesHash !== lastMessagesHash;
+    const hasNewMessages = messages.length > lastMessageCount;
+
+    if (isNewMessageSet || hasNewMessages) {
+      const container = containerRef.current;
+      
+      setTimeout(() => {
+        // Always scroll to bottom when reopening a chat or when new messages arrive
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: isNewMessageSet && !hasNewMessages ? 'instant' : 'smooth'
+        });
+        
+        console.log('Scrolled to bottom:', {
+          isNewMessageSet,
+          hasNewMessages,
+          messagesCount: messages.length,
+          scrollHeight: container.scrollHeight
+        });
+      }, 100);
+      
+      setLastMessageCount(messages.length);
+      setLastMessagesHash(messagesHash);
     }
-  }, [messages]);
+  }, [messages, lastMessageCount, lastMessagesHash]);
 
   return (
-    <div
+    <Box
       ref={containerRef}
       className="flex-1 overflow-y-auto p-4 space-y-4"
-      style={{ scrollbarWidth: 'thin', scrollbarColor: '#4B5563 #1F2937' }}
+      style={{ 
+        scrollbarWidth: 'thin', 
+        scrollbarColor: '#D6BFA3 #4E342E',
+      }}
+      sx={{
+        '&::-webkit-scrollbar': {
+          width: '6px',
+        },
+        '&::-webkit-scrollbar-track': {
+          background: '#4E342E',
+          borderRadius: '3px',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          background: '#D6BFA3',
+          borderRadius: '3px',
+          '&:hover': {
+            background: '#bfae8c',
+          },
+        },
+      }}
     >
       {messages.map((message) => (
         <Message
@@ -304,7 +365,7 @@ const MessageList: React.FC<MessageListProps> = ({
           <CircularProgress size={24} sx={{ color: '#9ca3af' }} />
         </div>
       )}
-    </div>
+    </Box>
   );
 };
 

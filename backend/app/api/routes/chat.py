@@ -55,25 +55,251 @@ class ChatDetail(BaseModel):
 
 # Available models
 AVAILABLE_MODELS = [
+    # OpenAI Models
     {
-        "id": "meta-llama/llama-3.3-8b-instruct:free",
-        "name": "Llama 3.3 8B",
-        "description": "Meta's Llama 3.3 8B parameter model"
+        "id": "openai/gpt-4.1",
+        "name": "GPT-4.1",
+        "description": "OpenAI's advanced model with 1M+ context ($2/$8 per 1M tokens)"
+    },
+    {
+        "id": "openai/gpt-4o",
+        "name": "GPT-4o",
+        "description": "OpenAI's flagship multimodal model with 128K context ($2.50/$10 per 1M tokens)"
+    },
+    {
+        "id": "openai/gpt-4.1-mini",
+        "name": "GPT-4.1 Mini",
+        "description": "OpenAI's efficient advanced model with 1M+ context ($0.40/$1.60 per 1M tokens)"
+    },
+    {
+        "id": "openai/gpt-4o-mini",
+        "name": "GPT-4o Mini",
+        "description": "OpenAI's efficient model with 128K context ($0.15/$0.60 per 1M tokens)"
+    },
+    {
+        "id": "openai/gpt-4.1-nano",
+        "name": "GPT-4.1 Nano",
+        "description": "OpenAI's ultra-efficient model with 1M+ context ($0.10/$0.40 per 1M tokens)"
+    },
+    {
+        "id": "openai/o4-mini",
+        "name": "o4 Mini",
+        "description": "OpenAI's reasoning model with 200K context ($1.10/$4.40 per 1M tokens)"
+    },
+    
+    # Anthropic Models
+    {
+        "id": "anthropic/claude-sonnet-4",
+        "name": "Claude Sonnet 4",
+        "description": "Anthropic's latest flagship model with 200K context ($3/$15 per 1M tokens)"
+    },
+    {
+        "id": "anthropic/claude-opus-4",
+        "name": "Claude Opus 4",
+        "description": "Anthropic's most powerful model with 200K context ($15/$75 per 1M tokens)"
+    },
+    {
+        "id": "anthropic/claude-3.7-sonnet",
+        "name": "Claude 3.7 Sonnet",
+        "description": "Anthropic's enhanced model with 200K context ($3/$15 per 1M tokens)"
+    },
+    {
+        "id": "anthropic/claude-3.5-sonnet",
+        "name": "Claude 3.5 Sonnet",
+        "description": "Anthropic's proven flagship model with 200K context ($3/$15 per 1M tokens)"
+    },
+    
+    # Google/Gemini Models
+    {
+        "id": "google/gemini-2.5-pro-preview",
+        "name": "Gemini 2.5 Pro",
+        "description": "Google's most capable model with 1M+ context ($1.25/$10 per 1M tokens)"
+    },
+    {
+        "id": "google/gemini-2.0-flash-001",
+        "name": "Gemini 2.0 Flash",
+        "description": "Google's fast model with 1M+ context ($0.10/$0.40 per 1M tokens)"
+    },
+    {
+        "id": "google/gemini-2.5-flash-preview",
+        "name": "Gemini 2.5 Flash",
+        "description": "Google's enhanced flash model with 1M+ context ($0.15/$0.60 per 1M tokens)"
+    },
+    {
+        "id": "google/gemini-flash-1.5",
+        "name": "Gemini 1.5 Flash",
+        "description": "Google's efficient model with 1M context ($0.075/$0.30 per 1M tokens)"
+    },
+    {
+        "id": "google/gemini-2.0-flash-lite-001",
+        "name": "Gemini 2.0 Flash Lite",
+        "description": "Google's lightweight model with 1M+ context ($0.075/$0.30 per 1M tokens)"
+    },
+    {
+        "id": "google/gemini-flash-1.5-8b",
+        "name": "Gemini 1.5 Flash 8B",
+        "description": "Google's compact model with 1M context ($0.038/$0.15 per 1M tokens)"
+    },
+    {
+        "id": "google/gemini-2.0-flash-exp:free",
+        "name": "Gemini 2.0 Flash Experimental",
+        "description": "Google's experimental model with 1M+ context - Free"
+    },
+    {
+        "id": "google/gemma-3-27b-it",
+        "name": "Gemma 3 27B",
+        "description": "Google's instruction-tuned model with 131K context ($0.10/$0.20 per 1M tokens)"
+    },
+    {
+        "id": "google/gemma-3-27b-it:free",
+        "name": "Gemma 3 27B",
+        "description": "Google's instruction-tuned model with 131K context - Free"
+    },
+    
+    # Meta/Llama Models
+    {
+        "id": "meta-llama/llama-4-maverick",
+        "name": "Llama 4 Maverick",
+        "description": "Meta's experimental model with 1M+ context ($0.15/$0.60 per 1M tokens)"
+    },
+    {
+        "id": "meta-llama/llama-4-scout",
+        "name": "Llama 4 Scout",
+        "description": "Meta's efficient model with 1M+ context ($0.08/$0.30 per 1M tokens)"
+    },
+    {
+        "id": "meta-llama/llama-3.3-70b-instruct",
+        "name": "Llama 3.3 70B",
+        "description": "Meta's latest 70B model with 131K context ($0.05/$0.25 per 1M tokens)"
+    },
+    {
+        "id": "meta-llama/llama-3.1-70b-instruct",
+        "name": "Llama 3.1 70B",
+        "description": "Meta's proven 70B model with 131K context ($0.10/$0.28 per 1M tokens)"
+    },
+    {
+        "id": "meta-llama/llama-3.1-8b-instruct",
+        "name": "Llama 3.1 8B",
+        "description": "Meta's efficient 8B model with 131K context ($0.016/$0.03 per 1M tokens)"
+    },
+    {
+        "id": "meta-llama/llama-3.2-3b-instruct",
+        "name": "Llama 3.2 3B",
+        "description": "Meta's compact 3B model with 131K context ($0.01/$0.02 per 1M tokens)"
     },
     {
         "id": "meta-llama/llama-3.3-70b-instruct:free",
         "name": "Llama 3.3 70B",
-        "description": "Meta's Llama 3.3 70B parameter model"
+        "description": "Meta's latest 70B model with 131K context - Free"
     },
     {
-        "id": "anthropic/claude-3-opus:beta",
-        "name": "Claude 3 Opus",
-        "description": "Anthropic's most powerful model"
+        "id": "meta-llama/llama-3.1-70b-instruct:free",
+        "name": "Llama 3.1 70B", 
+        "description": "Meta's proven 70B model with 131K context - Free"
     },
     {
-        "id": "anthropic/claude-3-sonnet:beta",
-        "name": "Claude 3 Sonnet",
-        "description": "Anthropic's balanced model"
+        "id": "meta-llama/llama-3.1-8b-instruct:free",
+        "name": "Llama 3.1 8B",
+        "description": "Meta's efficient 8B model with 131K context - Free"
+    },
+    {
+        "id": "meta-llama/llama-3.2-3b-instruct:free",
+        "name": "Llama 3.2 3B",
+        "description": "Meta's compact 3B model with 131K context - Free"
+    },
+    
+    # DeepSeek Models (Reasoning & Chat)
+    {
+        "id": "deepseek/deepseek-r1",
+        "name": "DeepSeek R1",
+        "description": "DeepSeek's reasoning model with 128K context ($0.45/$2.15 per 1M tokens)"
+    },
+    {
+        "id": "deepseek/deepseek-r1-0528",
+        "name": "DeepSeek R1 0528",
+        "description": "DeepSeek's enhanced reasoning model with 128K context ($0.50/$2.15 per 1M tokens)"
+    },
+    {
+        "id": "deepseek/deepseek-chat",
+        "name": "DeepSeek V3",
+        "description": "DeepSeek's conversational model with 163K context ($0.38/$0.89 per 1M tokens)"
+    },
+    {
+        "id": "deepseek/deepseek-chat-v3-0324",
+        "name": "DeepSeek V3 0324",
+        "description": "DeepSeek's latest conversational model with 163K context ($0.30/$0.88 per 1M tokens)"
+    },
+    {
+        "id": "deepseek/deepseek-r1:free",
+        "name": "DeepSeek R1",
+        "description": "DeepSeek's reasoning model with 163K context - Free"
+    },
+    {
+        "id": "deepseek/deepseek-r1-0528:free",
+        "name": "DeepSeek R1 0528",
+        "description": "DeepSeek's enhanced reasoning model with 163K context - Free"
+    },
+    {
+        "id": "deepseek/deepseek-chat:free",
+        "name": "DeepSeek V3",
+        "description": "DeepSeek's conversational model with 163K context - Free"
+    },
+    {
+        "id": "deepseek/deepseek-chat-v3-0324:free",
+        "name": "DeepSeek V3 0324",
+        "description": "DeepSeek's latest conversational model with 163K context - Free"
+    },
+    {
+        "id": "tngtech/deepseek-r1t-chimera:free",
+        "name": "DeepSeek R1T Chimera",
+        "description": "TNG's enhanced DeepSeek reasoning model with 163K context - Free"
+    },
+    
+    # Other Premium Models
+    {
+        "id": "x-ai/grok-3-beta",
+        "name": "Grok 3 Beta",
+        "description": "xAI's flagship model with 131K context ($3/$15 per 1M tokens)"
+    },
+    {
+        "id": "x-ai/grok-3-mini-beta",
+        "name": "Grok 3 Mini Beta",
+        "description": "xAI's efficient model with 131K context ($0.30/$0.50 per 1M tokens)"
+    },
+    {
+        "id": "mistralai/mistral-nemo",
+        "name": "Mistral Nemo",
+        "description": "Mistral's efficient model with 131K context ($0.01/$0.023 per 1M tokens)"
+    },
+    {
+        "id": "mistralai/mistral-small-3.1-24b-instruct",
+        "name": "Mistral Small 3.1",
+        "description": "Mistral's compact model with 131K context ($0.05/$0.15 per 1M tokens)"
+    },
+    {
+        "id": "mistralai/mistral-nemo:free",
+        "name": "Mistral Nemo",
+        "description": "Mistral's efficient model with 131K context - Free"
+    },
+    {
+        "id": "nousresearch/hermes-3-llama-3.1-405b",
+        "name": "Hermes 3 405B",
+        "description": "Nous Research's large model with 131K context ($0.70/$0.80 per 1M tokens)"
+    },
+    {
+        "id": "qwen/qwen3-235b-a22b",
+        "name": "Qwen3 235B",
+        "description": "Alibaba's large model with 40K context ($0.13/$0.60 per 1M tokens)"
+    },
+    {
+        "id": "qwen/qwen-2.5-7b-instruct",
+        "name": "Qwen 2.5 7B",
+        "description": "Alibaba's efficient 7B model with 32K context ($0.04/$0.10 per 1M tokens)"
+    },
+    {
+        "id": "qwen/qwen-2.5-7b-instruct:free",
+        "name": "Qwen 2.5 7B",
+        "description": "Alibaba's efficient 7B model with 32K context - Free"
     }
 ]
 
@@ -534,7 +760,8 @@ def get_chat(chat_id: int, db: Session = Depends(get_db), current_user: User = D
                     "id": msg.id,
                     "role": msg.role,
                     "content": msg.content,
-                    "created_at": msg.created_at
+                    "created_at": msg.created_at,
+                    "model": msg.model
                 }
                 for msg in chat.messages
             ],
@@ -580,6 +807,38 @@ def delete_chat(chat_id: int, db: Session = Depends(get_db), current_user: User 
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+class ChatUpdate(BaseModel):
+    title: str
+
+@router.put("/chats/{chat_id}", response_model=ChatResponse)
+def update_chat(chat_id: int, chat_update: ChatUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Update a chat's title"""
+    try:
+        # Get the chat first
+        chat = db.query(Chat).filter(Chat.id == chat_id, Chat.user_id == current_user.id).first()
+        if not chat:
+            raise HTTPException(status_code=404, detail="Chat not found or not authorized")
+        
+        # Update the title
+        chat.title = chat_update.title
+        db.commit()
+        db.refresh(chat)
+        
+        # Get message count and last message
+        message_count = len(chat.messages)
+        last_message = chat.messages[-1].content if chat.messages else None
+        
+        return ChatResponse(
+            id=chat.id,
+            title=chat.title,
+            created_at=chat.created_at,
+            message_count=message_count,
+            last_message=last_message
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/chats/{chat_id}/messages", response_model=List[dict])
 def get_chat_messages(chat_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
@@ -587,13 +846,14 @@ def get_chat_messages(chat_id: int, db: Session = Depends(get_db), current_user:
         if not chat:
             raise HTTPException(status_code=404, detail="Chat not found or not authorized")
             
-        messages = db.query(MessageDB).filter(MessageDB.chat_id == chat_id).order_by(MessageDB.created_at).all()
+        messages = db.query(MessageDB).filter(MessageDB.chat_id == chat_id).order_by(MessageDB.id).all()
         return [
             {
                 "id": msg.id,
                 "role": msg.role,
                 "content": msg.content,
-                "created_at": msg.created_at.isoformat()
+                "created_at": msg.created_at.isoformat(),
+                "model": msg.model
             }
             for msg in messages
         ]
@@ -608,12 +868,12 @@ async def get_models():
     return {"models": AVAILABLE_MODELS} 
 
 @router.delete("/chats/{chat_id}/messages/regenerate/{message_id}")
-def delete_messages_after_regeneration(chat_id: int, message_id: int, db: Session = Depends(get_db)):
+def delete_messages_after_regeneration(chat_id: int, message_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
-        # Check if chat exists
-        chat = db.query(Chat).filter(Chat.id == chat_id).first()
+        # Check if chat exists and user owns it
+        chat = db.query(Chat).filter(Chat.id == chat_id, Chat.user_id == current_user.id).first()
         if not chat:
-            raise HTTPException(status_code=404, detail="Chat not found")
+            raise HTTPException(status_code=404, detail="Chat not found or not authorized")
 
         # Find the message to regenerate
         message = db.query(MessageDB).filter(

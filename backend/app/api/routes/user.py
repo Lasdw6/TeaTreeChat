@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ...models.user import User
 from ...core.database import get_db
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, ValidationError
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
 from passlib.context import CryptContext
@@ -13,6 +13,7 @@ from datetime import datetime
 from ...models.chat import Chat, MessageDB
 from cryptography.fernet import Fernet
 import os
+import re
 
 router = APIRouter()
 
@@ -20,7 +21,7 @@ class UserResponse(BaseModel):
     id: int
     name: str
     email: str
-    api_key: str | None = None
+    has_api_key: bool = False
 
 @router.get("/users/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db)):
@@ -32,7 +33,8 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
     return UserResponse(
         id=user.id,
         name=user.name,
-        email=user.email
+        email=user.email,
+        has_api_key=bool(user.api_key)
     )
 
 SECRET_KEY = "your-secret-key"  # Change this in production
@@ -91,7 +93,7 @@ def get_current_user(token: str = Security(oauth2_scheme), db: Session = Depends
 
 class UserCreate(BaseModel):
     name: str
-    email: str
+    email: EmailStr  # Use EmailStr for email validation
     password: str
     api_key: str | None = None
 
@@ -99,8 +101,25 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+def is_strong_password(password: str) -> bool:
+    # At least 8 characters, one uppercase, one lowercase, one digit, one special char
+    if len(password) < 8:
+        return False
+    if not re.search(r"[A-Z]", password):
+        return False
+    if not re.search(r"[a-z]", password):
+        return False
+    if not re.search(r"[0-9]", password):
+        return False
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        return False
+    return True
+
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(user: UserCreate, db: Session = Depends(get_db)):
+    # Email validation is handled by EmailStr in UserCreate
+    if not is_strong_password(user.password):
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long and include uppercase, lowercase, digit, and special character.")
     db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -146,10 +165,13 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     db.add(assistant_msg)
     db.commit()
 
-    return UserResponse(id=new_user.id, name=new_user.name, email=new_user.email, api_key=None)
+    return UserResponse(id=new_user.id, name=new_user.name, email=new_user.email, has_api_key=bool(new_user.api_key))
 
 @router.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    # Basic email format check
+    if not re.match(r"[^@]+@[^@]+\.[^@]+", form_data.username):
+        raise HTTPException(status_code=400, detail="Invalid email format.")
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
@@ -161,7 +183,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 @router.get("/me", response_model=UserResponse)
 def read_users_me(current_user: User = Depends(get_current_user)):
-    return UserResponse(id=current_user.id, name=current_user.name, email=current_user.email, api_key=None)
+    return UserResponse(id=current_user.id, name=current_user.name, email=current_user.email, has_api_key=bool(current_user.api_key))
 
 @router.delete("/me")
 def delete_user_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
