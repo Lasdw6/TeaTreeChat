@@ -55,6 +55,4 @@ dist/
 .env.local
 # Project specific
 backend/chat.db
-backend/chunks.json
-backend/logs/chunks.txt
 frontend/.next/
