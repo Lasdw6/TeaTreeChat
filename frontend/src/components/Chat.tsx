@@ -12,6 +12,7 @@ import chatCache from '@/lib/chatCache';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const DEFAULT_USER_ID = 1;
 const DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
+console.log('DEFAULT_MODEL defined as:', DEFAULT_MODEL);
 
 interface Message {
   id: string;
@@ -56,7 +57,7 @@ export default function Chat() {
     console.log('Getting last used model from messages:', messages.map(m => ({ id: m.id, role: m.role, model: m.model })));
     // Look for the most recent message with a model (going backwards)
     for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].model) {
+      if (messages[i].model && messages[i].model !== null && messages[i].model !== undefined) {
         console.log(`Found last used model: ${messages[i].model}`);
         return messages[i].model!;
       }
@@ -78,13 +79,26 @@ export default function Chat() {
 
   // Update selected model based on last message when messages change
   useEffect(() => {
+    console.log('Model selection effect triggered:', { 
+      messagesLength: messages.length, 
+      selectedChatId, 
+      currentSelectedModel: selectedModel 
+    });
+    
     if (messages.length > 0) {
       const lastUsedModel = getLastUsedModel(messages);
+      console.log('Last used model from messages:', lastUsedModel);
+      console.log('Current selected model:', selectedModel);
+      
       if (lastUsedModel !== selectedModel) {
+        console.log(`Updating model from ${selectedModel} to ${lastUsedModel}`);
         setSelectedModel(lastUsedModel);
+      } else {
+        console.log('Model already matches, no update needed');
       }
     } else if (selectedChatId) {
       // If chat is selected but no messages, use default
+      console.log(`No messages in chat ${selectedChatId}, using default model: ${DEFAULT_MODEL}`);
       setSelectedModel(DEFAULT_MODEL);
     }
   }, [messages, selectedChatId]);
@@ -125,6 +139,9 @@ export default function Chat() {
       });
       if (!response.ok) throw new Error('Failed to fetch chat messages');
       const data = await response.json();
+      
+      console.log('Fetched messages from API:', data);
+      console.log('Message models:', data.map((m: any) => ({ id: m.id, role: m.role, model: m.model })));
       
       // Cache the messages for quick access later
       chatCache.cacheMessages(chatId, data);
