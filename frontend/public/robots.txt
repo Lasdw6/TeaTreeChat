@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /settings/
+Disallow: /chat/
+ 
+Sitemap: https://teatreechat.com/sitemap.xml 

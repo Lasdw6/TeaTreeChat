@@ -17,4 +17,5 @@ export interface AuthContextType {
   logout: () => void;
   refreshUser: () => Promise<void>;
   deleteAccount: () => Promise<void>;
+  loading: boolean;
 } 

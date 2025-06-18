@@ -7,10 +7,12 @@ import { Box, Paper, Typography, TextField, Button, Tabs, Tab, Alert, Dialog, Di
 import { useTheme } from '@mui/material/styles';
 import Link from 'next/link';
 import SettingsIcon from '@mui/icons-material/Settings';
+import TeaTreeLogo from '@/components/TeaTreeLogo';
 import React from "react";
+import TeaTreeSpinner from '@/components/TeaTreeSpinner';
 
 export default function ChatPage() {
-  const { user, token, login, register } = useAuth();
+  const { user, token, login, register, loading: authLoading } = useAuth();
   const router = useRouter();
   const [tab, setTab] = useState(0);
   const [loginEmail, setLoginEmail] = useState("");
@@ -20,15 +22,16 @@ export default function ChatPage() {
   const [registerPassword, setRegisterPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [open, setOpen] = useState(!user || !token);
+  const [open, setOpen] = useState(false);
   const theme = useTheme();
 
   const emailRegex = /^[^@]+@[^@]+\.[^@]+$/;
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
 
   useEffect(() => {
-    setOpen(!user || !token);
-  }, [user, token]);
+    // Only open dialog if auth is complete and user is not logged in
+    setOpen(!authLoading && (!user || !token));
+  }, [user, token, authLoading]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +84,14 @@ export default function ChatPage() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <Box sx={{ minHeight: '100vh', bgcolor: '#5B6F56', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <TeaTreeSpinner size={96} showText />
+      </Box>
+    );
+  }
+
   return (
     <>
       <Box sx={{ minHeight: '100vh', bgcolor: '#5B6F56' }}>
@@ -97,7 +108,12 @@ export default function ChatPage() {
         </Box>
         <Chat />
       </Box>
-      <Dialog open={open} disableEscapeKeyDown fullWidth maxWidth="xs"
+      <Dialog 
+        open={open} 
+        fullWidth 
+        maxWidth="xs"
+        onClose={() => {}} // Prevent closing but don't disable escape key
+      
         PaperProps={{
           sx: {
             bgcolor: '#4E342E',
@@ -119,6 +135,9 @@ export default function ChatPage() {
         }}
       >
         <DialogTitle sx={{ textAlign: 'center', color: '#D6BFA3', fontWeight: 700, fontSize: 26, pb: 0, pt: 3, letterSpacing: 1 }}>
+          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
+            <TeaTreeLogo size={80} />
+          </Box>
           Welcome to TeaTree Chat
         </DialogTitle>
         <DialogContent sx={{ px: 4, pt: 2, pb: 4 }}>

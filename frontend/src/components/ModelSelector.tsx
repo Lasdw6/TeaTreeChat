@@ -7,6 +7,7 @@ interface ModelSelectorProps {
   onModelChange: (modelId: string) => void;
   disabled?: boolean;
   className?: string;
+  forceUpward?: boolean;
 }
 
 interface GroupedModels {
@@ -18,6 +19,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   onModelChange,
   disabled = false,
   className = '',
+  forceUpward = false,
 }) => {
   const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +61,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
 
     fetchModels();
   }, [selectedModel, onModelChange, isMounted]);
-
+  
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -118,7 +120,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
     groups[provider].push(model);
     return groups;
   }, {} as GroupedModels);
-
+  
   // Preserve the order from backend by maintaining the order models appear in the original array
   const providerOrder: string[] = [];
   models.forEach(model => {
@@ -171,25 +173,30 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   const calculateDropdownPosition = () => {
     if (!buttonRef.current) return;
     
+    // If forceUpward is true, always position upward
+    if (forceUpward) {
+      setDropdownPosition('up');
+      setMaxDropdownHeight(400);
+      return;
+    }
+    
     const buttonRect = buttonRef.current.getBoundingClientRect();
     const viewportHeight = window.innerHeight;
-    const spaceAbove = buttonRect.top - 10; // 10px margin
-    const spaceBelow = viewportHeight - buttonRect.bottom - 10; // 10px margin
     
-    // Calculate max available height for each direction
-    const maxHeightAbove = Math.max(200, spaceAbove);
-    const maxHeightBelow = Math.max(200, spaceBelow);
+    const spaceBelow = viewportHeight - buttonRect.bottom - 10; // 10px margin
+    const spaceAbove = buttonRect.top - 10; // 10px margin
+    
+    const maxHeightBelow = Math.min(400, spaceBelow);
+    const maxHeightAbove = Math.min(400, spaceAbove);
     
     if (spaceBelow >= 300) {
-      // Prefer below if there's decent space
       setDropdownPosition('down');
       setMaxDropdownHeight(Math.min(maxHeightBelow, viewportHeight * 0.8));
     } else if (spaceAbove >= 300) {
-      // Use above if there's decent space above
       setDropdownPosition('up');
       setMaxDropdownHeight(Math.min(maxHeightAbove, viewportHeight * 0.8));
     } else {
-      // Use the side with more space
+      // If neither space is sufficient, choose the one with more space
       if (spaceBelow > spaceAbove) {
         setDropdownPosition('down');
         setMaxDropdownHeight(Math.min(maxHeightBelow, viewportHeight * 0.8));
@@ -243,15 +250,15 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         className="w-full h-12 px-4 py-2 bg-[#4E342E]/80 border border-[#D6BFA3]/30 rounded-xl text-[#D6BFA3] focus:outline-none focus:ring-2 focus:ring-[#5B6F56] focus:border-[#5B6F56] transition-all backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between hover:bg-[#4E342E] hover:border-[#5B6F56]/50 hover:shadow-lg hover:shadow-[#5B6F56]/10"
       >
         <div className="flex items-center space-x-2 flex-1 min-w-0">
-          {showLoading ? (
+        {showLoading ? (
             <span className="text-[#D6BFA3]/60">Loading models...</span>
-          ) : error ? (
+        ) : error ? (
             <span className="text-red-400">Error loading models</span>
           ) : selectedModelData ? (
             <span className="truncate">{selectedModelData.name}</span>
-          ) : (
+        ) : (
             <span className="text-[#D6BFA3]/60">Select a model</span>
-          )}
+        )}
         </div>
         <svg
           className={`w-4 h-4 text-[#5B6F56] transition-transform ${isOpen ? 'rotate-180' : ''}`}
@@ -450,7 +457,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
               )}
             </button>
           </div>
-        </div>
+      </div>
       )}
     </div>
   );

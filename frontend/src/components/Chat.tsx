@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Menu as MenuIcon, ChevronLeft as ChevronLeftIcon } from '@mui/icons-material';
 import { useAuth } from '@/app/AuthProvider';
 import { useTheme } from '@mui/material/styles';
-import { Snackbar, Alert } from '@mui/material';
+import { Snackbar, Alert, Typography, Box } from '@mui/material';
+import TeaTreeLogo from './TeaTreeLogo';
 import chatCache from '@/lib/chatCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
@@ -77,6 +78,7 @@ export default function Chat() {
   }, [selectedChatId]);
 
   // Update selected model based on last message when messages change
+  // Only run this if we don't have a selectedChatId (for new chats)
   useEffect(() => {
     console.log('Model selection effect triggered:', { 
       messagesLength: messages.length, 
@@ -84,23 +86,13 @@ export default function Chat() {
       currentSelectedModel: selectedModel 
     });
     
-    if (messages.length > 0) {
-      const lastUsedModel = getLastUsedModel(messages);
-      console.log('Last used model from messages:', lastUsedModel);
-      console.log('Current selected model:', selectedModel);
-      
-      if (lastUsedModel !== selectedModel) {
-        console.log(`Updating model from ${selectedModel} to ${lastUsedModel}`);
-        setSelectedModel(lastUsedModel);
-      } else {
-        console.log('Model already matches, no update needed');
-      }
-    } else if (selectedChatId) {
-      // If chat is selected but no messages, use default
-      console.log(`No messages in chat ${selectedChatId}, using default model: ${DEFAULT_MODEL}`);
+    // Only update model automatically if we don't have a selected chat
+    // For selected chats, the model is set directly in fetchChatMessages
+    if (!selectedChatId && messages.length === 0) {
+      console.log('No chat selected, using default model');
       setSelectedModel(DEFAULT_MODEL);
     }
-  }, [messages, selectedChatId]);
+  }, [messages.length, selectedChatId]);
 
   // On mount and when localStorage changes, update apiKey from localStorage
   useEffect(() => {
@@ -130,6 +122,11 @@ export default function Chat() {
           message_count: cachedChat.message_count || 0,
           last_message: cachedChat.last_message || null
         });
+        
+        // Immediately update model based on cached messages
+        const lastUsedModel = getLastUsedModel(cachedChat.messages);
+        console.log(`Setting model from cached messages: ${lastUsedModel}`);
+        setSelectedModel(lastUsedModel);
       }
       
       // Then fetch fresh data
@@ -145,6 +142,11 @@ export default function Chat() {
       // Cache the messages for quick access later
       chatCache.cacheMessages(chatId, data);
       setMessages(data);
+      
+      // Update model based on fresh data
+      const lastUsedModel = getLastUsedModel(data);
+      console.log(`Setting model from fresh messages: ${lastUsedModel}`);
+      setSelectedModel(lastUsedModel);
 
       // Fetch chat details
       const chatResponse = await fetch(`${API_BASE_URL}/chats/${chatId}`, {
@@ -161,6 +163,10 @@ export default function Chat() {
       if (cachedChat?.messages && messages.length === 0) {
         console.log('API failed, using cached messages');
         setMessages(cachedChat.messages);
+        // Update model based on cached messages
+        const lastUsedModel = getLastUsedModel(cachedChat.messages);
+        console.log(`Setting model from fallback cached messages: ${lastUsedModel}`);
+        setSelectedModel(lastUsedModel);
       }
     } finally {
       setIsLoading(false);
@@ -751,18 +757,25 @@ export default function Chat() {
       {/* Collapsible Sidebar */}
       <div className={`transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col`} style={{ background: '#D6BFA3', paddingRight: '4px', paddingTop: '4px' }}>
         <button
-          className="p-2 w-full text-left focus:outline-none hover:text-white cursor-pointer"
+          className="p-2 w-full text-left focus:outline-none hover:text-white cursor-pointer flex items-center justify-center"
           style={{ 
             color: '#4E342E', 
             backgroundColor: '#D6BFA3',
             transition: 'all 0.2s ease',
             border: 'none',
             zIndex: 10,
-            position: 'relative'
+            position: 'relative',
+            minHeight: '48px'
           }}
           onClick={() => setSidebarOpen((open) => !open)}
         >
-          {sidebarOpen ? <ChevronLeftIcon /> : <MenuIcon />}
+          {sidebarOpen ? (
+            <ChevronLeftIcon />
+          ) : (
+            <div className="flex flex-col items-center">
+              <TeaTreeLogo size={24} />
+            </div>
+          )}
         </button>
         {sidebarOpen && (
       <ChatList 
@@ -775,11 +788,44 @@ export default function Chat() {
       </div>
       <div className="flex-1 flex flex-col" style={{ background: 'transparent' }}>
         {!selectedChatId ? (
-          <div className="flex-1 flex items-center justify-center text-gray-400">
-            <div className="text-center">
-              <h2 className="text-2xl font-semibold mb-2">Welcome to TeaTree Chat</h2>
-              <p>Select a chat from the sidebar or create a new one to start messaging</p>
-            </div>
+          <div className="flex-1 flex items-center justify-center">
+            <Box sx={{ 
+              textAlign: 'center', 
+              maxWidth: 500, 
+              px: 4,
+              py: 6,
+              bgcolor: 'rgba(78, 52, 46, 0.1)',
+              borderRadius: 4,
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(214, 191, 163, 0.2)'
+            }}>
+              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
+                <TeaTreeLogo size={80} />
+              </Box>
+              <Typography variant="h4" sx={{ 
+                color: '#D6BFA3', 
+                fontWeight: 700, 
+                mb: 2, 
+                letterSpacing: 1 
+              }}>
+                Welcome to TeaTree Chat
+              </Typography>
+              <Typography variant="h6" sx={{ 
+                color: '#D6BFA3', 
+                fontWeight: 400, 
+                mb: 3,
+                opacity: 0.9 
+              }}>
+                BYOK AI Chat Platform
+              </Typography>
+              <Typography variant="body1" sx={{ 
+                color: 'rgba(255, 255, 255, 0.8)', 
+                fontSize: 16,
+                lineHeight: 1.6 
+              }}>
+                Select a chat from the sidebar or create a new one to start messaging with your favorite AI models
+              </Typography>
+            </Box>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center min-h-0 py-8">
@@ -790,6 +836,7 @@ export default function Chat() {
                 placeholder="Type your message..."
                 selectedModel={selectedModel}
                 onModelChange={setSelectedModel}
+                forceUpward={true}
               />
             </div>
           </div>

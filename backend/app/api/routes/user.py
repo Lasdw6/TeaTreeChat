@@ -115,6 +115,36 @@ def is_strong_password(password: str) -> bool:
         return False
     return True
 
+def validate_and_clean_api_key(api_key: str) -> str:
+    """
+    Validate and clean OpenRouter API key.
+    Returns cleaned API key or raises HTTPException if invalid.
+    """
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key cannot be empty.")
+    
+    # Strip whitespace
+    cleaned_key = api_key.strip()
+    
+    if not cleaned_key:
+        raise HTTPException(status_code=400, detail="API key cannot be empty.")
+    
+    # Check if it contains only ASCII characters
+    try:
+        cleaned_key.encode('ascii')
+    except UnicodeEncodeError:
+        raise HTTPException(status_code=400, detail="API key contains invalid characters. Only ASCII characters are allowed.")
+    
+    # Basic OpenRouter API key format validation (starts with sk-or-)
+    if not cleaned_key.startswith('sk-or-'):
+        raise HTTPException(status_code=400, detail="Invalid OpenRouter API key format. Key should start with 'sk-or-'.")
+    
+    # Check minimum length (OpenRouter keys are typically longer)
+    if len(cleaned_key) < 20:
+        raise HTTPException(status_code=400, detail="API key appears to be too short. Please check your OpenRouter API key.")
+    
+    return cleaned_key
+
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(user: UserCreate, db: Session = Depends(get_db)):
     # Email validation is handled by EmailStr in UserCreate
@@ -124,7 +154,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     hashed_password = get_password_hash(user.password)
-    encrypted_api_key = encrypt_api_key(user.api_key) if user.api_key else None
+    encrypted_api_key = encrypt_api_key(validate_and_clean_api_key(user.api_key)) if user.api_key else None
     new_user = User(name=user.name, email=user.email, hashed_password=hashed_password, api_key=encrypted_api_key)
     db.add(new_user)
     db.commit()
@@ -206,7 +236,7 @@ class ApiKeyUpdate(BaseModel):
 
 @router.put("/me/api_key", response_model=UserResponse)
 def update_api_key(update: ApiKeyUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    current_user.api_key = encrypt_api_key(update.api_key)
+    current_user.api_key = encrypt_api_key(validate_and_clean_api_key(update.api_key))
     db.commit()
     db.refresh(current_user)
     return UserResponse(id=current_user.id, name=current_user.name, email=current_user.email, api_key=None) 

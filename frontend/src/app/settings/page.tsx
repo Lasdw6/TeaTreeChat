@@ -5,6 +5,7 @@ import { Box, Paper, Typography, TextField, Button, Dialog, DialogTitle, DialogC
 import { useTheme } from '@mui/material/styles';
 import { useRouter } from 'next/navigation';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import TeaTreeLogo from '@/components/TeaTreeLogo';
 
 export default function SettingsPage() {
   const { apiKey, setApiKey, deleteAccount, logout, user, refreshUser } = useAuth();
@@ -50,9 +51,10 @@ export default function SettingsPage() {
       >
         Back
       </Button>
-      <Paper elevation={4} sx={{ p: { xs: 2, sm: 5 }, bgcolor: '#4E342E', color: '#fff', minWidth: 320, borderRadius: 4, maxWidth: 420, width: '100%', boxShadow: '0 8px 32px 0 rgba(91,111,86,0.18)', position: 'relative' }}>
+      <Paper elevation={4} sx={{ p: { xs: 2, sm: 5 }, bgcolor: '#4E342E', color: '#fff', minWidth: 320, borderRadius: 4, maxWidth: 500, width: '100%', boxShadow: '0 8px 32px 0 rgba(91,111,86,0.18)', position: 'relative' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" sx={{ fontWeight: 700, color: '#D6BFA3', flexGrow: 1, letterSpacing: 1 }}>Settings</Typography>
+          <TeaTreeLogo size={56} />
+          <Typography variant="h4" sx={{ fontWeight: 700, color: '#D6BFA3', flexGrow: 1, letterSpacing: 1, ml: 2 }}>Settings</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
             <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: hasKey ? '#5B6F56' : '#ef4444', mr: 1 }} />
             <Typography variant="subtitle2" sx={{ color: hasKey ? '#5B6F56' : '#ef4444', fontWeight: 700, fontSize: '1rem' }}>
@@ -73,7 +75,7 @@ export default function SettingsPage() {
               fontWeight: 600
             }}
           >
-            Create one on OpenRouter for free
+            Create for free here
           </a>
         </Typography>
         <TextField

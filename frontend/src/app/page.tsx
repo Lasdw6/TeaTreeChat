@@ -35,8 +35,8 @@ export default function LandingPage() {
           <Typography variant="h5" sx={{ mb: 3, color: '#D6BFA3', fontWeight: 400 }}>
             BYOK. All Models. Total Control.
           </Typography>
-          <Typography variant="body1" sx={{ mb: 4, color: '#fff', fontSize: 18 }}>
-            Connect your own API keys and access {'all kinds of AI models'}—from OpenAI, Anthropic, Llama, and more. Enjoy privacy, flexibility, and full control over your conversations and data.
+          <Typography variant="body1" sx={{ mb: 4, color: '#fff', fontSize: 18, lineHeight: 1.6 }}>
+            The ultimate AI chat platform where <strong>you</strong> bring your own API keys. Access GPT-4, Claude, Llama, Gemini, and dozens of other models with complete privacy and control. No monthly subscriptions, no data mining—just pure AI conversation power.
           </Typography>
           <Button
             variant="contained"
@@ -81,6 +81,54 @@ export default function LandingPage() {
           </Stack>
         </Box>
       </Stack>
+      
+      {/* Footer */}
+      <Box sx={{ 
+        position: 'absolute', 
+        bottom: 0, 
+        left: 0, 
+        right: 0, 
+        p: 3, 
+        textAlign: 'center',
+        background: 'linear-gradient(to top, rgba(78, 52, 46, 0.8), transparent)'
+      }}>
+        <Typography variant="body2" sx={{ color: '#D6BFA3', opacity: 0.8 }}>
+          Made with ☕ by{' '}
+          <Link 
+            href="https://vividh.lol" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{ 
+              color: '#D6BFA3', 
+              textDecoration: 'none',
+              fontWeight: 600,
+              borderBottom: '1px solid transparent',
+              transition: 'border-color 0.2s ease'
+            }}
+            onMouseEnter={(e) => (e.target as HTMLElement).style.borderBottomColor = '#D6BFA3'}
+            onMouseLeave={(e) => (e.target as HTMLElement).style.borderBottomColor = 'transparent'}
+          >
+            Vividh Mahajan
+          </Link>
+          {' • '}
+          <Link 
+            href="https://github.com/Lasdw6/TeaTreeChat" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{ 
+              color: '#D6BFA3', 
+              textDecoration: 'none',
+              fontWeight: 600,
+              borderBottom: '1px solid transparent',
+              transition: 'border-color 0.2s ease'
+            }}
+            onMouseEnter={(e) => (e.target as HTMLElement).style.borderBottomColor = '#D6BFA3'}
+            onMouseLeave={(e) => (e.target as HTMLElement).style.borderBottomColor = 'transparent'}
+          >
+            GitHub
+          </Link>
+        </Typography>
+      </Box>
     </Box>
   );
 } 

@@ -77,11 +77,18 @@ async def generate_chat_completion(chat_request: ChatRequest, user_api_key: str)
     """
     if not user_api_key:
         raise HTTPException(status_code=400, detail="No API key set. Please set your OpenRouter API key in Settings.")
+    
+    # Ensure API key is ASCII-safe
+    try:
+        user_api_key.encode('ascii')
+    except UnicodeEncodeError:
+        raise HTTPException(status_code=400, detail="API key contains invalid characters. Please check your API key.")
+    
     headers = {
         "Authorization": f"Bearer {user_api_key}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://t3-chat-clone.com",
-        "X-Title": "T3 Chat Clone"
+        "HTTP-Referer": "https://teatreechat.vividh.lol",
+        "X-Title": "TeaTree Chat"
     }
     
     payload = {

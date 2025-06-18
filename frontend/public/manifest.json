@@ -1,0 +1,49 @@
+{
+  "name": "TeaTree Chat - BYOK AI Chat Platform",
+  "short_name": "TeaTree Chat",
+  "description": "Bring Your Own Key AI chat platform. Access all major AI models with your own API keys.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#5B6F56",
+  "theme_color": "#4E342E",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "utilities", "communication"],
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Chat",
+      "short_name": "Chat",
+      "description": "Start a new chat conversation",
+      "url": "/chat",
+      "icons": [
+        {
+          "src": "/favicon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Settings",
+      "short_name": "Settings",
+      "description": "Configure your API keys and preferences",
+      "url": "/settings",
+      "icons": [
+        {
+          "src": "/favicon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+} 

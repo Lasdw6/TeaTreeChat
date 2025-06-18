@@ -18,13 +18,12 @@ import {
   Divider,
   Chip,
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, CachedRounded as CacheIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { Chat } from '@/types/chat';
 import { useAuth } from '@/app/AuthProvider';
-import chatCache from '@/lib/chatCache';
+import ModelSelector from './ModelSelector';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-const MAX_CACHED_CHATS = 10;
 const DEFAULT_USER_ID = 1;
 
 interface User {
@@ -46,8 +45,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   const [error, setError] = useState<string | null>(null);
   const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false);
   const [newChatTitle, setNewChatTitle] = useState('');
-  const [isLoadingFromCache, setIsLoadingFromCache] = useState(true);
-  const [usingCache, setUsingCache] = useState(false);
+  const [newChatModel, setNewChatModel] = useState('meta-llama/llama-3.3-70b-instruct:free');
   const [isRenameChatDialogOpen, setIsRenameChatDialogOpen] = useState(false);
   const [renameChatId, setRenameChatId] = useState<number | null>(null);
   const [renameChatTitle, setRenameChatTitle] = useState('');
@@ -55,7 +53,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
 
   useEffect(() => {
     if (user && token) {
-      loadChats();
+      fetchChats();
     }
   }, [user, token]);
 
@@ -75,29 +73,6 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
     }
   }, [shouldRefresh, onRefresh]);
 
-  const loadChats = async () => {
-    if (!user || !token) return;
-    
-    // First, try to load from cache for instant display
-    if (chatCache.hasCachedData()) {
-      const cachedChats = chatCache.getCachedChats();
-      console.log(`Loaded ${cachedChats.length} chats from cache`);
-      setChats(cachedChats);
-      setUsingCache(true);
-      setIsLoadingFromCache(false);
-      
-      // Mark the first chat as accessed if no chat is selected
-      if (cachedChats.length > 0 && !selectedChatId) {
-        chatCache.markAsAccessed(cachedChats[0].id);
-      }
-    } else {
-      setIsLoadingFromCache(false);
-    }
-    
-    // Then fetch fresh data in the background
-    await fetchChats();
-  };
-
   const fetchChats = async () => {
     if (!user || !token) return;
     try {
@@ -109,23 +84,11 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       data.sort((a: Chat, b: Chat) => {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
-      
-      // Update cache with fresh data
-      chatCache.updateChats(data);
-      console.log(`Fetched ${data.length} chats from API and updated cache`);
-      
       setChats(data);
-      setUsingCache(false);
       if (error) setError(null);
     } catch (err) {
-      // If we have cached data and API fails, keep using cache
-      if (chatCache.hasCachedData()) {
-        console.log('API failed, keeping cached data');
-        setError('Using cached data - connection issues detected');
-      } else {
-        setError('Failed to load chats. Please try again later.');
-        console.error(err);
-      }
+      setError('Failed to load chats. Please try again later.');
+      console.error(err);
     }
   };
 
@@ -141,18 +104,15 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         body: JSON.stringify({ 
           title: newChatTitle,
           user_id: user.id,
-          model: "meta-llama/llama-3.3-70b-instruct:free"
+          model: newChatModel
         }),
       });
       if (!response.ok) throw new Error('Failed to create chat');
       const newChat = await response.json();
-      
-      // Add to cache and update local state
-      chatCache.addNewChat(newChat);
       setChats(prev => [newChat, ...prev]);
-      
       setIsNewChatDialogOpen(false);
       setNewChatTitle('');
+      setNewChatModel('meta-llama/llama-3.3-70b-instruct:free');
       onSelectChat(newChat.id);
     } catch (error) {
       console.error('Error creating chat:', error);
@@ -169,11 +129,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to delete chat');
-      
-      // Remove from cache and update local state
-      chatCache.removeChat(chatId);
       setChats(prev => prev.filter(chat => chat.id !== chatId));
-      
       if (selectedChatId === chatId) {
         onSelectChat(null);
       }
@@ -206,13 +162,9 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       });
       if (!response.ok) throw new Error('Failed to rename chat');
       const updatedChat = await response.json();
-      
-      // Update local state and cache
       setChats(prev => prev.map(chat => 
         chat.id === renameChatId ? { ...chat, title: updatedChat.title } : chat
       ));
-      chatCache.updateChatTitle(renameChatId, updatedChat.title);
-      
       setIsRenameChatDialogOpen(false);
       setRenameChatId(null);
       setRenameChatTitle('');
@@ -223,8 +175,6 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   };
 
   const handleChatSelect = (chatId: number) => {
-    // Mark as accessed in cache for better ordering
-    chatCache.markAsAccessed(chatId);
     onSelectChat(chatId);
   };
 
@@ -259,21 +209,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         borderColor: '#333'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Typography variant="h6" sx={{ color: '#D6BFA3', fontWeight: 600 }}>Chats</Typography>
-          {usingCache && (
-            <Chip
-              icon={<CacheIcon />}
-              label="Cached"
-              size="small"
-              sx={{
-                bgcolor: '#5B6F56',
-                color: '#D6BFA3',
-                '& .MuiChip-icon': { color: '#D6BFA3' },
-                fontSize: '0.7rem',
-                height: '20px'
-              }}
-            />
-          )}
+        <Typography variant="h6" sx={{ color: '#D6BFA3', fontWeight: 600 }}>Chats</Typography>
         </div>
         <Button
           variant="contained"
@@ -347,7 +283,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
                 transition: 'opacity 0.2s',
                 gap: 0.5
               }}>
-                                                  <IconButton
+                <IconButton
                   size="small"
                   aria-label="rename"
                   onClick={(e) => handleRenameChat(chat.id, e)}
@@ -360,19 +296,19 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
                 >
                   <EditIcon fontSize="small" />
                 </IconButton>
-                <IconButton
+              <IconButton
                   size="small"
-                  aria-label="delete"
-                  onClick={(e) => handleDeleteChat(chat.id, e)}
-                  sx={{
-                    color: '#ef4444',
-                    '&:hover': {
-                      bgcolor: 'rgba(239, 68, 68, 0.1)'
-                    }
-                  }}
-                >
+                aria-label="delete"
+                onClick={(e) => handleDeleteChat(chat.id, e)}
+                sx={{
+                  color: '#ef4444',
+                  '&:hover': {
+                    bgcolor: 'rgba(239, 68, 68, 0.1)'
+                  }
+                }}
+              >
                   <DeleteIcon fontSize="small" />
-                </IconButton>
+              </IconButton>
               </Box>
             }
           >
@@ -548,6 +484,11 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
                 color: '#D6BFA3',
               },
             }}
+          />
+          <ModelSelector
+            selectedModel={newChatModel}
+            onModelChange={(model) => setNewChatModel(model)}
+            forceUpward={true}
           />
         </DialogContent>
         <DialogActions>

@@ -84,25 +84,25 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
               <ReactMarkdown 
                 children={processedContent}
                 components={{
-                  p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
-                  h1: ({ children }) => <h1 className="text-xl font-bold mt-6 mb-4">{children}</h1>,
-                  h2: ({ children }) => <h2 className="text-lg font-bold mt-5 mb-3">{children}</h2>,
-                  h3: ({ children }) => <h3 className="text-base font-bold mt-4 mb-2">{children}</h3>,
-                  ul: ({ children }) => <ul className="list-disc pl-6 mb-4">{children}</ul>,
-                  ol: ({ children }) => <ol className="list-decimal pl-6 mb-4">{children}</ol>,
-                  code: ({ node, inline, className, children, ...props }) => {
-                    const match = /language-(\w+)/.exec(className || '');
-                    return !inline ? (
-                      <CodeBlockWithCopy language={match?.[1]}>
-                        {String(children).replace(/\n$/, '')}
-                      </CodeBlockWithCopy>
-                    ) : (
-                      <code className="bg-gray-800 px-1.5 py-0.5 rounded text-sm" {...props}>
-                        {children}
-                      </code>
-                    );
-                  },
-                  pre: ({ children }) => <>{children}</>,
+              p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
+              h1: ({ children }) => <h1 className="text-xl font-bold mt-6 mb-4">{children}</h1>,
+              h2: ({ children }) => <h2 className="text-lg font-bold mt-5 mb-3">{children}</h2>,
+              h3: ({ children }) => <h3 className="text-base font-bold mt-4 mb-2">{children}</h3>,
+              ul: ({ children }) => <ul className="list-disc pl-6 mb-4">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal pl-6 mb-4">{children}</ol>,
+              code: ({ node, inline, className, children, ...props }) => {
+                const match = /language-(\w+)/.exec(className || '');
+                return !inline ? (
+                  <CodeBlockWithCopy language={match?.[1]}>
+                    {String(children).replace(/\n$/, '')}
+                  </CodeBlockWithCopy>
+                ) : (
+                  <code className="bg-gray-800 px-1.5 py-0.5 rounded text-sm" {...props}>
+                    {children}
+                  </code>
+                );
+              },
+              pre: ({ children }) => <>{children}</>,
                 }}
               />
             )}
