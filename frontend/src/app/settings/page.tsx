@@ -60,7 +60,22 @@ export default function SettingsPage() {
             </Typography>
           </Box>
         </Box>
-        <Typography variant="h6" sx={{ mb: 2, color: '#D6BFA3', fontWeight: 600 }}>OpenRouter API Key</Typography>
+        <Typography variant="h6" sx={{ mb: 1, color: '#D6BFA3', fontWeight: 600 }}>OpenRouter API Key</Typography>
+        <Typography variant="body2" sx={{ mb: 2, color: '#fff', opacity: 0.8 }}>
+          Don't have an API key? {' '}
+          <a 
+            href="https://openrouter.ai/keys" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{ 
+              color: '#D6BFA3', 
+              textDecoration: 'underline',
+              fontWeight: 600
+            }}
+          >
+            Create one on OpenRouter for free
+          </a>
+        </Typography>
         <TextField
           label="OpenRouter API Key"
           type="password"

@@ -10,7 +10,6 @@ import { Snackbar, Alert } from '@mui/material';
 import chatCache from '@/lib/chatCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-const DEFAULT_USER_ID = 1;
 const DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
 console.log('DEFAULT_MODEL defined as:', DEFAULT_MODEL);
 

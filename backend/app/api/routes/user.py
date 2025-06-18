@@ -134,7 +134,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     welcome_chat = Chat(
         title="Welcome!",
         user_id=new_user.id,
-        model_used="gpt-3.5-turbo"
+        model_used="meta-llama/llama-3.3-70b-instruct:free"
     )
     db.add(welcome_chat)
     db.commit()
@@ -145,7 +145,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         chat_id=welcome_chat.id,
         role="user",
         content="What is TeaTree Chat?",
-        model="gpt-3.5-turbo"
+        model="meta-llama/llama-3.3-70b-instruct:free"
     )
     db.add(user_msg)
     db.commit()
@@ -155,12 +155,22 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         chat_id=welcome_chat.id,
         role="assistant",
         content=(
-            "**🌳 Welcome to TeaTree Chat! 🌳**\n\n"
-            "TeaTree Chat is a T3chat clone made as part of the Cloneathon. \n It works on a BYOK (Bring Your Own Key) basis using OpenRouter.\n\n"
-            "To get started, go to **Settings** and set your OpenRouter API key.\n\n"
-            "✨ _More features coming soon: web search, chat search, and more!_ ✨"
+            "### **🌳 Welcome to TeaTree Chat! 🌳**\n\n"
+            "# TeaTree Chat is a T3chat clone made as part of the Cloneathon by **Vividh**. \n\n It works on a BYOK (Bring Your Own Key) basis using OpenRouter.\n\n"
+            "# To get started, go to **Settings** and set your OpenRouter API key.\n\n"
+            "## **🔗 Links:**\n"
+            "• **Made By:** [Vividh Mahajan](https://vividh.lol)\n"
+            "• **Github Repo:** [TeaTree Chat Repository](https://github.com/Lasdw6/TeaTreeChat)\n\n"
+            "✨ _More features coming soon:_\n"
+            "- web search\n"
+            "- chat search\n"
+            "- multi modal support for input and output\n"
+            "- credits calculator\n"
+            "- custom models selection\n"
+            "- imporoved reasoning model support\n"
+            "- and more!!!_ ✨"
         ),
-        model="gpt-3.5-turbo"
+        model="meta-llama/llama-3.3-70b-instruct:free"
     )
     db.add(assistant_msg)
     db.commit()

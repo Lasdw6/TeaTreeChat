@@ -20,9 +20,9 @@ TODO
 
 []Export chat
 
-[]Better LLM menu with more models
+[x]Better LLM menu with more models
 
-[]Host
+[x]Host
 
 [x]Login email and password verification
 
