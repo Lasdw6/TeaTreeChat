@@ -4,10 +4,10 @@ import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import { useRouter } from 'next/navigation';
 import { Menu as MenuIcon, ChevronLeft as ChevronLeftIcon } from '@mui/icons-material';
-import { useAuth } from '@/app/AuthProvider';
+import { useAuth } from '../app/AuthProvider';
 import { useTheme } from '@mui/material/styles';
 import { Snackbar, Alert } from '@mui/material';
-import chatCache from '@/lib/chatCache';
+import chatCache from '../lib/chatCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const DEFAULT_USER_ID = 1;

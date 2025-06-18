@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Message as MessageType, Model } from '@/types/chat';
+import { Message as MessageType, Model } from '../types/chat';
 import ReactMarkdown from 'react-markdown';
 import { Box, Typography, CircularProgress, IconButton, Tooltip, Menu, MenuItem } from '@mui/material';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
