@@ -2,6 +2,40 @@ import { ChatRequest, ChatResponse, Message, Model, StreamingChunk } from '@/typ
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
+// Function to ping the server and wake it up if sleeping
+export async function pingServer(): Promise<boolean> {
+  try {
+    console.log('Pinging server to wake it up...');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    const response = await fetch(`${API_BASE_URL}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      console.log('Server is awake and responsive');
+      return true;
+    } else {
+      console.warn('Server responded but with error status:', response.status);
+      return false;
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('Server ping timed out - server may be sleeping');
+    } else {
+      console.error('Failed to ping server:', error);
+    }
+    return false;
+  }
+}
+
 // Function to generate a unique ID for messages
 export const generateId = (): string => {
   return Math.random().toString(36).substring(2, 15);

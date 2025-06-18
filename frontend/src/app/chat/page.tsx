@@ -3,6 +3,7 @@ import { useAuth } from "@/app/AuthProvider";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Chat from "@/components/Chat";
+import ServerStatusLoader from "@/components/ServerStatusLoader";
 import { Box, Paper, Typography, TextField, Button, Tabs, Tab, Alert, Dialog, DialogTitle, DialogContent } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import Link from 'next/link';
@@ -23,6 +24,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
+  const [serverReady, setServerReady] = useState(false);
   const theme = useTheme();
 
   const emailRegex = /^[^@]+@[^@]+\.[^@]+$/;
@@ -32,6 +34,10 @@ export default function ChatPage() {
     // Only open dialog if auth is complete and user is not logged in
     setOpen(!authLoading && (!user || !token));
   }, [user, token, authLoading]);
+
+  const handleServerReady = () => {
+    setServerReady(true);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +99,7 @@ export default function ChatPage() {
   }
 
   return (
-    <>
+    <ServerStatusLoader onServerReady={handleServerReady}>
       <Box sx={{ minHeight: '100vh', bgcolor: '#5B6F56' }}>
         <Box sx={{ width: '100%', display: 'flex', justifyContent: 'flex-end', p: 2, position: 'absolute', top: 0, right: 0, zIndex: 10 }}>
           <Link href="/settings" style={{ textDecoration: 'none' }}>
@@ -228,6 +234,6 @@ export default function ChatPage() {
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </ServerStatusLoader>
   );
 } 

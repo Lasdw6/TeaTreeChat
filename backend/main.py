@@ -39,6 +39,10 @@ app.include_router(api_router, prefix="/api")
 async def root():
     return {"message": "Chat API is running"}
 
+@app.get("/api/health")
+async def health_check():
+    return {"status": "healthy", "message": "Server is awake and responsive"}
+
 # Graceful shutdown handling
 @app.on_event("shutdown")
 async def shutdown_event():
