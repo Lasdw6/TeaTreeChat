@@ -5,7 +5,71 @@ import { Box, Typography, CircularProgress, IconButton, Tooltip, Menu, MenuItem 
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { ContentCopy as CopyIcon, Refresh as RefreshIcon, Check as CheckIcon } from '@mui/icons-material';
-// import { getModels } from '@/lib/api';
+
+interface CodeBlockWithCopyProps {
+  children: string;
+  language?: string;
+}
+
+const CodeBlockWithCopy: React.FC<CodeBlockWithCopyProps> = ({ children, language }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(children);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy code:', err);
+    }
+  };
+
+  return (
+    <Box sx={{ position: 'relative', my: 2, '&:hover .copy-button': { opacity: 1 } }}>
+      <Tooltip title={copied ? 'Copied!' : 'Copy code'}>
+        <IconButton
+          onClick={handleCopy}
+          size="small"
+          className="copy-button"
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 1,
+            color: '#fff',
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            opacity: 0,
+            transition: 'opacity 0.2s',
+            '&:hover': {
+              backgroundColor: 'rgba(0,0,0,0.7)',
+            },
+          }}
+        >
+          {copied ? <CheckIcon fontSize="small" /> : <CopyIcon fontSize="small" />}
+        </IconButton>
+      </Tooltip>
+      <SyntaxHighlighter
+        language={language || 'text'}
+        style={vscDarkPlus}
+        customStyle={{
+          margin: 0,
+          padding: '16px',
+          borderRadius: '8px',
+          backgroundColor: '#1E1E1E',
+          fontSize: '0.875rem',
+          lineHeight: '1.5',
+        }}
+        codeTagProps={{
+          style: {
+            fontFamily: 'monospace',
+          },
+        }}
+      >
+        {children}
+      </SyntaxHighlighter>
+    </Box>
+  );
+};
 
 interface MessageProps {
   message: MessageType;
@@ -257,6 +321,7 @@ interface MessageListProps {
   loading?: boolean;
   streamingMessageId?: string;
   onRegenerate?: (messageId: string, model?: string) => void;
+  availableModels?: Model[];
   onFork?: (messageId: string) => void;
 }
 
@@ -266,64 +331,16 @@ const MessageList: React.FC<MessageListProps> = ({
   streamingMessageId,
   onRegenerate,
   onFork,
+  availableModels = [],
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [models, setModels] = useState<Model[]>([]);
-  const [isMounted, setIsMounted] = useState(false);
-  const [lastMessageCount, setLastMessageCount] = useState(0);
-  const [lastMessagesHash, setLastMessagesHash] = useState<string>('');
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isMounted) return;
-
-    const fetchModels = async () => {
-      try {
-        // const modelsList = await getModels();
-        // setModels(modelsList);
-        setModels([]); // Temporary fix
-      } catch (err) {
-        console.error('Failed to load models:', err);
-      }
-    };
-
-    fetchModels();
-  }, [isMounted]);
-
-  // Scroll to bottom when messages change (new chat opened, messages loaded from cache, or new messages added)
-  useEffect(() => {
-    if (!containerRef.current || messages.length === 0) return;
-
-    // Create a hash of message IDs to detect when messages actually change
-    const messagesHash = messages.map(m => m.id).join(',');
-    const isNewMessageSet = messagesHash !== lastMessagesHash;
-    const hasNewMessages = messages.length > lastMessageCount;
-
-    if (isNewMessageSet || hasNewMessages) {
-      const container = containerRef.current;
-      
-      setTimeout(() => {
-        // Always scroll to bottom when reopening a chat or when new messages arrive
-        container.scrollTo({
-          top: container.scrollHeight,
-          behavior: isNewMessageSet && !hasNewMessages ? 'instant' : 'smooth'
-        });
-        
-        console.log('Scrolled to bottom:', {
-          isNewMessageSet,
-          hasNewMessages,
-          messagesCount: messages.length,
-          scrollHeight: container.scrollHeight
-        });
-      }, 100);
-      
-      setLastMessageCount(messages.length);
-      setLastMessagesHash(messagesHash);
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [messages, lastMessageCount, lastMessagesHash]);
+  }, [messages]);
+
 
   return (
     <Box
@@ -356,7 +373,7 @@ const MessageList: React.FC<MessageListProps> = ({
           message={message}
           isStreaming={message.id === streamingMessageId}
           onRegenerate={onRegenerate}
-          availableModels={models}
+          availableModels={availableModels}
           onFork={onFork}
         />
       ))}
@@ -366,79 +383,6 @@ const MessageList: React.FC<MessageListProps> = ({
         </div>
       )}
     </Box>
-  );
-};
-
-const CodeBlockWithCopy: React.FC<{ children: string; language?: string }> = ({ children, language }) => {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(children);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy text: ', err);
-      try {
-        const textArea = document.createElement('textarea');
-        textArea.value = children;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (fallbackErr) {
-        console.error('Fallback copy failed: ', fallbackErr);
-      }
-    }
-  };
-
-  return (
-    <div className="relative group">
-      <div className="flex items-center justify-between px-4 py-2 bg-[#2a2a2a] border-b border-gray-700 rounded-t-lg">
-        <div className="text-xs text-gray-400 font-medium">
-          {language ? language.toUpperCase() : 'TEXT'}
-        </div>
-        <button
-          onClick={handleCopy}
-          className="text-xs text-gray-400 hover:text-gray-200 transition-colors flex items-center gap-1.5"
-          title="Copy to clipboard"
-        >
-          {copied ? (
-            <>
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Copied!
-            </>
-          ) : (
-            <>
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-              </svg>
-              Copy
-            </>
-          )}
-        </button>
-      </div>
-      <SyntaxHighlighter
-        language={language || 'text'}
-        style={vscDarkPlus}
-        customStyle={{
-          margin: 0,
-          borderRadius: '0 0 0.5rem 0.5rem',
-          padding: '1rem',
-          background: '#4E342E',
-          color: '#D6BFA3',
-        }}
-        showLineNumbers
-        wrapLines
-        wrapLongLines
-      >
-        {children}
-      </SyntaxHighlighter>
-    </div>
   );
 };
 

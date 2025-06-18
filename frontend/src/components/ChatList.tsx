@@ -21,10 +21,10 @@ import {
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { Chat } from '@/types/chat';
 import { useAuth } from '@/app/AuthProvider';
-import ModelSelector from './ModelSelector';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const DEFAULT_USER_ID = 1;
+const DEFAULT_FREE_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
 
 interface User {
   id: number;
@@ -45,7 +45,6 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   const [error, setError] = useState<string | null>(null);
   const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false);
   const [newChatTitle, setNewChatTitle] = useState('');
-  const [newChatModel, setNewChatModel] = useState('meta-llama/llama-3.3-70b-instruct:free');
   const [isRenameChatDialogOpen, setIsRenameChatDialogOpen] = useState(false);
   const [renameChatId, setRenameChatId] = useState<number | null>(null);
   const [renameChatTitle, setRenameChatTitle] = useState('');
@@ -104,7 +103,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         body: JSON.stringify({ 
           title: newChatTitle,
           user_id: user.id,
-          model: newChatModel
+          model: DEFAULT_FREE_MODEL
         }),
       });
       if (!response.ok) throw new Error('Failed to create chat');
@@ -112,7 +111,6 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       setChats(prev => [newChat, ...prev]);
       setIsNewChatDialogOpen(false);
       setNewChatTitle('');
-      setNewChatModel('meta-llama/llama-3.3-70b-instruct:free');
       onSelectChat(newChat.id);
     } catch (error) {
       console.error('Error creating chat:', error);
@@ -434,10 +432,20 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
           {user && user.email ? user.email : 'No email available'}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.2 }}>
-          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: (hasKey ? '#5B6F56' : '#ef4444'), mr: 0.7 }} />
-          <Typography variant="caption" sx={{ color: hasKey ? '#5B6F56' : '#ef4444', fontWeight: 600, fontSize: '0.82rem' }}>
-            {hasKey ? 'API Key Set' : 'No API Key'}
-          </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            bgcolor: '#D6BFA3',
+            px: 1.5,
+            py: 0.5,
+            borderRadius: 1.5,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}>
+            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: (hasKey ? '#5B6F56' : '#ef4444'), mr: 0.7 }} />
+            <Typography variant="caption" sx={{ color: '#4E342E', fontWeight: 600, fontSize: '0.75rem' }}>
+              {hasKey ? 'API Key Set' : 'No API Key'}
+            </Typography>
+          </Box>
         </Box>
       </Paper>
 
@@ -485,11 +493,9 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
               },
             }}
           />
-          <ModelSelector
-            selectedModel={newChatModel}
-            onModelChange={(model) => setNewChatModel(model)}
-            forceUpward={true}
-          />
+          <Typography variant="body2" sx={{ color: '#9ca3af', mt: 2, fontStyle: 'italic' }}>
+            New chats will automatically use the free Llama 3.3 70B model
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button 

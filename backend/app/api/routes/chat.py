@@ -470,10 +470,17 @@ async def stream_chat_completion(request: ChatRequest, user_api_key: str):
         error_msg = f"Error in stream_chat_completion: {str(e)}"
         logger.error(error_msg)
         logger.error(f"Traceback: {traceback.format_exc()}")
+        
+        # Extract detailed error message from HTTPException
+        if isinstance(e, HTTPException):
+            error_detail = e.detail
+        else:
+            error_detail = str(e)
+            
         yield {
             "event": "error",
             "data": json.dumps({
-                "error": str(e)
+                "detail": error_detail
             })
         }
 

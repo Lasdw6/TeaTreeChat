@@ -1,10 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/app/AuthProvider";
-import { Box, Paper, Typography, TextField, Button, Dialog, DialogTitle, DialogContent, DialogActions, Divider } from '@mui/material';
+import { Box, Paper, Typography, TextField, Button, Dialog, DialogTitle, DialogContent, DialogActions, Divider, Alert, Snackbar } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useRouter } from 'next/navigation';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import TeaTreeLogo from '@/components/TeaTreeLogo';
 
 export default function SettingsPage() {
@@ -12,6 +13,8 @@ export default function SettingsPage() {
   const [keyInput, setKeyInput] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const theme = useTheme();
   const router = useRouter();
 
@@ -21,8 +24,18 @@ export default function SettingsPage() {
   }, [user]);
 
   const handleSaveKey = async () => {
-    await setApiKey(keyInput.trim());
-    await refreshUser();
+    setSaving(true);
+    try {
+      await setApiKey(keyInput.trim());
+      await refreshUser();
+      setShowSuccess(true);
+      // Auto-hide success message after 3 seconds
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (error) {
+      console.error('Error saving API key:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -55,9 +68,18 @@ export default function SettingsPage() {
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
           <TeaTreeLogo size={56} />
           <Typography variant="h4" sx={{ fontWeight: 700, color: '#D6BFA3', flexGrow: 1, letterSpacing: 1, ml: 2 }}>Settings</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            ml: 2,
+            bgcolor: '#D6BFA3',
+            px: 2,
+            py: 1,
+            borderRadius: 2,
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}>
             <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: hasKey ? '#5B6F56' : '#ef4444', mr: 1 }} />
-            <Typography variant="subtitle2" sx={{ color: hasKey ? '#5B6F56' : '#ef4444', fontWeight: 700, fontSize: '1rem' }}>
+            <Typography variant="subtitle2" sx={{ color: '#4E342E', fontWeight: 700, fontSize: '0.9rem' }}>
               {hasKey ? 'API Key Set' : 'No API Key'}
             </Typography>
           </Box>
@@ -94,10 +116,30 @@ export default function SettingsPage() {
           variant="contained"
           sx={{ fontWeight: 700, bgcolor: '#D6BFA3', color: '#4E342E', borderRadius: 2, boxShadow: '0 2px 8px 0 rgba(91,111,86,0.10)', '&:hover': { bgcolor: '#bfae8c' }, mb: 3 }}
           onClick={handleSaveKey}
+          disabled={saving}
           fullWidth
         >
-          Save Key
+          {saving ? 'Saving...' : 'Save Key'}
         </Button>
+        
+        {showSuccess && (
+          <Alert 
+            severity="success" 
+            icon={<CheckCircleIcon />}
+            sx={{ 
+              mb: 3, 
+              bgcolor: 'rgba(91, 111, 86, 0.1)', 
+              color: '#5B6F56',
+              border: '1px solid rgba(91, 111, 86, 0.3)',
+              '& .MuiAlert-icon': {
+                color: '#5B6F56'
+              }
+            }}
+          >
+            API key saved successfully!
+          </Alert>
+        )}
+
         <Divider sx={{ my: 4, bgcolor: '#D6BFA3', opacity: 0.18, borderRadius: 2 }} />
         <Typography variant="h6" sx={{ mb: 2, color: '#ef4444', fontWeight: 700 }}>Danger Zone</Typography>
         <Button

@@ -103,8 +103,32 @@ async def generate_chat_completion(chat_request: ChatRequest, user_api_key: str)
         async with httpx.AsyncClient(timeout=30.0) as client:
             async with client.stream("POST", OPENROUTER_API_URL, headers=headers, json=payload) as response:
                 if response.status_code != 200:
-                    error_detail = await response.aread()
-                    raise HTTPException(status_code=response.status_code, detail=f"OpenRouter API error: {error_detail}")
+                    error_body = await response.aread()
+                    error_detail = ""
+                    try:
+                        # Try to parse the JSON error response from OpenRouter
+                        error_data = json.loads(error_body)
+                        # Extract the meaningful part of the error
+                        error_detail = error_data.get("error", {}).get("message", "An unknown error occurred.")
+                        
+                        # Add provider-specific details if available
+                        provider_error = error_data.get("error", {}).get("provider_error", {})
+                        if provider_error:
+                            provider_message = provider_error.get("message", "")
+                            if provider_message:
+                                error_detail += f" (Provider: {provider_message})"
+
+                    except (json.JSONDecodeError, AttributeError):
+                        # If parsing fails, use the raw response body
+                        error_detail = error_body.decode('utf-8', errors='ignore')
+
+                    # Always include the original status code for context
+                    error_to_raise = f"OpenRouter Error (HTTP {response.status_code}): {error_detail}"
+                    
+                    logger.error(f"OpenRouter API Error: Status {response.status_code}, Detail: {error_body.decode('utf-8', errors='ignore')}")
+                    
+                    # We use a 500 status code for the client, but include the real status in the message
+                    raise HTTPException(status_code=500, detail=error_to_raise)
                 
                 async for line in response.aiter_lines():
                     if not line.strip() or not line.startswith("data: "):
@@ -133,5 +157,8 @@ async def generate_chat_completion(chat_request: ChatRequest, user_api_key: str)
     
     except (httpx.RequestError, asyncio.TimeoutError) as e:
         raise HTTPException(status_code=500, detail=f"Error connecting to OpenRouter API: {str(e)}")
+    except HTTPException:
+        # Re-raise HTTPException as-is (including our detailed OpenRouter errors)
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}") 

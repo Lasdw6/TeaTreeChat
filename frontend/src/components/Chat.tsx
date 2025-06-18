@@ -9,6 +9,8 @@ import { useTheme } from '@mui/material/styles';
 import { Snackbar, Alert, Typography, Box } from '@mui/material';
 import TeaTreeLogo from './TeaTreeLogo';
 import chatCache from '@/lib/chatCache';
+import { getModels } from '@/lib/api';
+import { Model } from '@/types/chat';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
@@ -39,6 +41,7 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | undefined>(undefined);
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
+  const [availableModels, setAvailableModels] = useState<Model[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const router = useRouter();
   const { user, token } = useAuth();
@@ -66,6 +69,18 @@ export default function Chat() {
     console.log(`No model found in messages, using default: ${DEFAULT_MODEL}`);
     return DEFAULT_MODEL;
   };
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const models = await getModels();
+        setAvailableModels(models);
+      } catch (error) {
+        console.error("Failed to fetch models:", error);
+      }
+    };
+    fetchModels();
+  }, []);
 
   useEffect(() => {
     if (selectedChatId) {
@@ -844,10 +859,11 @@ export default function Chat() {
           <>
             <MessageList 
               messages={messages}
-              loading={isLoading}
+              loading={isLoading && messages.length === 0}
               streamingMessageId={streamingMessageId}
               onRegenerate={handleRegenerate}
               onFork={handleFork}
+              availableModels={availableModels}
             />
             <MessageInput
               onSendMessage={handleSend}
