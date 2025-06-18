@@ -19,9 +19,9 @@ import {
   Chip,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, CachedRounded as CacheIcon } from '@mui/icons-material';
-import { Chat } from '../types/chat';
-import { useAuth } from '../app/AuthProvider';
-import chatCache from '../lib/chatCache';
+import { Chat } from '@/types/chat';
+import { useAuth } from '@/app/AuthProvider';
+import chatCache from '@/lib/chatCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const MAX_CACHED_CHATS = 10;

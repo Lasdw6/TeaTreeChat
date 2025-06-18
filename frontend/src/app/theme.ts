@@ -4,17 +4,14 @@ const theme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#5B6F56',
+      main: '#5B6F56', // Green
     },
     secondary: {
-      main: '#D6BFA3',
-    },
-    brown: {
-      main: '#4E342E',
+      main: '#D6BFA3', // Beige/Tan
     },
     background: {
-      default: '#121212',
-      paper: '#1e1e1e',
+      default: '#4E342E', // Brown
+      paper: '#4E342E',   // Brown
     },
   },
   components: {
