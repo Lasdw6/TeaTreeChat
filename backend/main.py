@@ -28,10 +28,11 @@ app.add_middleware(
 # Include API routes with prefix
 app.include_router(api_router, prefix="/api")
 
-@app.on_event("startup")
-def init_db():
-    # Create tables
-    Base.metadata.create_all(bind=engine)
+# Database initialization is handled in start.sh script
+# @app.on_event("startup")
+# def init_db():
+#     # Create tables
+#     Base.metadata.create_all(bind=engine)
 
 # Health check endpoint
 @app.get("/")

@@ -12,11 +12,7 @@ from ..models.chat import Message, ChatRequest
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("openrouter")
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-
-if not OPENROUTER_API_KEY:
-    logger.warning("WARNING: OPENROUTER_API_KEY not set in environment variables")
 
 def clean_duplicate_content(content: str) -> str:
     """
