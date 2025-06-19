@@ -58,238 +58,193 @@ AVAILABLE_MODELS = [
     # OpenAI Models
     {
         "id": "openai/gpt-4.1",
-        "name": "GPT-4.1",
-        "description": "OpenAI's advanced model with 1M+ context ($2/$8 per 1M tokens)"
+        "name": "GPT-4.1 - Premium",
+        "description": "GPT-4.1 with 1M+ context ($2.00/$8.00 per 1M tokens)"
     },
     {
         "id": "openai/gpt-4o",
-        "name": "GPT-4o",
-        "description": "OpenAI's flagship multimodal model with 128K context ($2.50/$10 per 1M tokens)"
+        "name": "GPT-4o - Premium",
+        "description": "GPT-4o with 128K context ($2.50/$10.00 per 1M tokens)"
     },
     {
         "id": "openai/gpt-4.1-mini",
-        "name": "GPT-4.1 Mini",
-        "description": "OpenAI's efficient advanced model with 1M+ context ($0.40/$1.60 per 1M tokens)"
+        "name": "GPT-4.1 Mini - Premium",
+        "description": "GPT-4.1 Mini with 1M+ context ($0.40/$1.60 per 1M tokens)"
     },
     {
         "id": "openai/gpt-4o-mini",
-        "name": "GPT-4o Mini",
-        "description": "OpenAI's efficient model with 128K context ($0.15/$0.60 per 1M tokens)"
+        "name": "GPT-4o-mini - Premium",
+        "description": "GPT-4o-mini with 128K context ($0.15/$0.60 per 1M tokens)"
     },
     {
         "id": "openai/gpt-4.1-nano",
-        "name": "GPT-4.1 Nano",
-        "description": "OpenAI's ultra-efficient model with 1M+ context ($0.10/$0.40 per 1M tokens)"
+        "name": "GPT-4.1 Nano - Premium",
+        "description": "GPT-4.1 Nano with 1M+ context ($0.10/$0.40 per 1M tokens)"
     },
     {
         "id": "openai/o4-mini",
-        "name": "o4 Mini",
-        "description": "OpenAI's reasoning model with 200K context ($1.10/$4.40 per 1M tokens)"
+        "name": "o4 Mini - Reasoning",
+        "description": "o4 Mini with 200K context ($1.10/$4.40 per 1M tokens)"
     },
-    
+
     # Anthropic Models
     {
         "id": "anthropic/claude-sonnet-4",
-        "name": "Claude Sonnet 4",
-        "description": "Anthropic's latest flagship model with 200K context ($3/$15 per 1M tokens)"
+        "name": "Claude Sonnet 4 - Reasoning",
+        "description": "Claude Sonnet 4 with 200K context ($3.00/$15.00 per 1M tokens)"
     },
     {
         "id": "anthropic/claude-opus-4",
-        "name": "Claude Opus 4",
-        "description": "Anthropic's most powerful model with 200K context ($15/$75 per 1M tokens)"
+        "name": "Claude Opus 4 - Premium",
+        "description": "Claude Opus 4 with 200K context ($15.00/$75.00 per 1M tokens)"
     },
     {
         "id": "anthropic/claude-3.7-sonnet",
-        "name": "Claude 3.7 Sonnet",
-        "description": "Anthropic's enhanced model with 200K context ($3/$15 per 1M tokens)"
+        "name": "Claude 3.7 Sonnet - Premium",
+        "description": "Claude 3.7 Sonnet with 200K context ($3.00/$15.00 per 1M tokens)"
     },
     {
         "id": "anthropic/claude-3.5-sonnet",
-        "name": "Claude 3.5 Sonnet",
-        "description": "Anthropic's proven flagship model with 200K context ($3/$15 per 1M tokens)"
+        "name": "Claude 3.5 Sonnet - Premium",
+        "description": "Claude 3.5 Sonnet with 200K context ($3.00/$15.00 per 1M tokens)"
     },
-    
+
     # Google/Gemini Models
     {
         "id": "google/gemini-2.5-pro-preview",
-        "name": "Gemini 2.5 Pro",
-        "description": "Google's most capable model with 1M+ context ($1.25/$10 per 1M tokens)"
+        "name": "Gemini 2.5 Pro Preview 06-05 - Reasoning",
+        "description": "Gemini 2.5 Pro Preview 06-05 with 1M+ context ($1.25/$10.00 per 1M tokens)"
     },
     {
         "id": "google/gemini-2.0-flash-001",
         "name": "Gemini 2.0 Flash",
-        "description": "Google's fast model with 1M+ context ($0.10/$0.40 per 1M tokens)"
+        "description": "Gemini 2.0 Flash with 1M+ context ($0.10/$0.40 per 1M tokens)"
     },
     {
         "id": "google/gemini-2.5-flash-preview",
-        "name": "Gemini 2.5 Flash",
-        "description": "Google's enhanced flash model with 1M+ context ($0.15/$0.60 per 1M tokens)"
+        "name": "Gemini 2.5 Flash Preview 04-17 - Reasoning",
+        "description": "Gemini 2.5 Flash Preview 04-17 with 1M+ context ($0.15/$0.60 per 1M tokens)"
     },
     {
         "id": "google/gemini-flash-1.5",
         "name": "Gemini 1.5 Flash",
-        "description": "Google's efficient model with 1M context ($0.075/$0.30 per 1M tokens)"
+        "description": "Gemini 1.5 Flash with 1M+ context ($0.07/$0.30 per 1M tokens)"
     },
     {
         "id": "google/gemini-2.0-flash-lite-001",
         "name": "Gemini 2.0 Flash Lite",
-        "description": "Google's lightweight model with 1M+ context ($0.075/$0.30 per 1M tokens)"
+        "description": "Gemini 2.0 Flash Lite with 1M+ context ($0.07/$0.30 per 1M tokens)"
     },
     {
         "id": "google/gemini-flash-1.5-8b",
         "name": "Gemini 1.5 Flash 8B",
-        "description": "Google's compact model with 1M context ($0.038/$0.15 per 1M tokens)"
+        "description": "Gemini 1.5 Flash 8B with 1M+ context ($0.04/$0.15 per 1M tokens)"
     },
     {
         "id": "google/gemini-2.0-flash-exp:free",
-        "name": "Gemini 2.0 Flash Experimental",
-        "description": "Google's experimental model with 1M+ context - Free"
-    },
-    {
-        "id": "google/gemma-3-27b-it",
-        "name": "Gemma 3 27B",
-        "description": "Google's instruction-tuned model with 131K context ($0.10/$0.20 per 1M tokens)"
+        "name": "Gemini 2.0 Flash Experimental - Free",
+        "description": "Gemini 2.0 Flash Experimental with 1M+ context - Free"
     },
     {
         "id": "google/gemma-3-27b-it:free",
-        "name": "Gemma 3 27B",
-        "description": "Google's instruction-tuned model with 131K context - Free"
+        "name": "Gemma 3 27B - Free",
+        "description": "Gemma 3 27B with 96K context - Free"
     },
-    
+
     # Meta/Llama Models
     {
-        "id": "meta-llama/llama-4-maverick",
-        "name": "Llama 4 Maverick",
-        "description": "Meta's experimental model with 1M+ context ($0.15/$0.60 per 1M tokens)"
+        "id": "meta-llama/llama-4-maverick:free",
+        "name": "Llama 4 Maverick - Free + Premium",
+        "description": "Llama 4 Maverick with 128K context - Free"
     },
     {
-        "id": "meta-llama/llama-4-scout",
-        "name": "Llama 4 Scout",
-        "description": "Meta's efficient model with 1M+ context ($0.08/$0.30 per 1M tokens)"
-    },
-    {
-        "id": "meta-llama/llama-3.3-70b-instruct",
-        "name": "Llama 3.3 70B",
-        "description": "Meta's latest 70B model with 131K context ($0.05/$0.25 per 1M tokens)"
-    },
-    {
-        "id": "meta-llama/llama-3.1-70b-instruct",
-        "name": "Llama 3.1 70B",
-        "description": "Meta's proven 70B model with 131K context ($0.10/$0.28 per 1M tokens)"
-    },
-    {
-        "id": "meta-llama/llama-3.1-8b-instruct",
-        "name": "Llama 3.1 8B",
-        "description": "Meta's efficient 8B model with 131K context ($0.016/$0.03 per 1M tokens)"
-    },
-    {
-        "id": "meta-llama/llama-3.2-3b-instruct",
-        "name": "Llama 3.2 3B",
-        "description": "Meta's compact 3B model with 131K context ($0.01/$0.02 per 1M tokens)"
+        "id": "meta-llama/llama-4-scout:free",
+        "name": "Llama 4 Scout - Free + Premium",
+        "description": "Llama 4 Scout with 128K context - Free"
     },
     {
         "id": "meta-llama/llama-3.3-70b-instruct:free",
-        "name": "Llama 3.3 70B",
-        "description": "Meta's latest 70B model with 131K context - Free"
+        "name": "Llama 3.3 70B Instruct - Free",
+        "description": "Llama 3.3 70B Instruct with 131K context - Free"
+    },
+    {
+        "id": "meta-llama/llama-3.1-70b-instruct",
+        "name": "Llama 3.1 70B Instruct",
+        "description": "Llama 3.1 70B Instruct with 131K context ($0.10/$0.28 per 1M tokens)"
     },
     {
         "id": "meta-llama/llama-3.1-8b-instruct:free",
-        "name": "Llama 3.1 8B",
-        "description": "Meta's efficient 8B model with 131K context - Free"
+        "name": "Llama 3.1 8B Instruct - Free",
+        "description": "Llama 3.1 8B Instruct with 131K context - Free"
     },
     {
         "id": "meta-llama/llama-3.2-3b-instruct:free",
-        "name": "Llama 3.2 3B",
-        "description": "Meta's compact 3B model with 131K context - Free"
+        "name": "Llama 3.2 3B Instruct - Free",
+        "description": "Llama 3.2 3B Instruct with 20K context - Free"
     },
-    
-    # DeepSeek Models (Reasoning & Chat)
-    {
-        "id": "deepseek/deepseek-r1",
-        "name": "DeepSeek R1",
-        "description": "DeepSeek's reasoning model with 128K context ($0.45/$2.15 per 1M tokens)"
-    },
-    {
-        "id": "deepseek/deepseek-r1-0528",
-        "name": "DeepSeek R1 0528",
-        "description": "DeepSeek's enhanced reasoning model with 128K context ($0.50/$2.15 per 1M tokens)"
-    },
-    {
-        "id": "deepseek/deepseek-chat",
-        "name": "DeepSeek V3",
-        "description": "DeepSeek's conversational model with 163K context ($0.38/$0.89 per 1M tokens)"
-    },
-    {
-        "id": "deepseek/deepseek-chat-v3-0324",
-        "name": "DeepSeek V3 0324",
-        "description": "DeepSeek's latest conversational model with 163K context ($0.30/$0.88 per 1M tokens)"
-    },
+
+    # DeepSeek Models
     {
         "id": "deepseek/deepseek-r1:free",
-        "name": "DeepSeek R1",
-        "description": "DeepSeek's reasoning model with 163K context - Free"
+        "name": "R1 - Free + Reasoning",
+        "description": "R1 with 163K context - Free"
     },
     {
         "id": "deepseek/deepseek-r1-0528:free",
-        "name": "DeepSeek R1 0528",
-        "description": "DeepSeek's enhanced reasoning model with 163K context - Free"
+        "name": "R1 0528 - Free + Reasoning",
+        "description": "R1 0528 with 163K context - Free"
     },
     {
         "id": "deepseek/deepseek-chat:free",
-        "name": "DeepSeek V3",
-        "description": "DeepSeek's conversational model with 163K context - Free"
+        "name": "DeepSeek V3 - Free",
+        "description": "DeepSeek V3 with 163K context - Free"
     },
     {
         "id": "deepseek/deepseek-chat-v3-0324:free",
-        "name": "DeepSeek V3 0324",
-        "description": "DeepSeek's latest conversational model with 163K context - Free"
+        "name": "DeepSeek V3 0324 - Free",
+        "description": "DeepSeek V3 0324 with 163K context - Free"
     },
     {
         "id": "tngtech/deepseek-r1t-chimera:free",
-        "name": "DeepSeek R1T Chimera",
-        "description": "TNG's enhanced DeepSeek reasoning model with 163K context - Free"
+        "name": "DeepSeek R1T Chimera - Free + Reasoning",
+        "description": "DeepSeek R1T Chimera with 163K context - Free"
     },
-    
-    # Other Premium Models
+
+    # Other Models
     {
         "id": "x-ai/grok-3-beta",
-        "name": "Grok 3 Beta",
-        "description": "xAI's flagship model with 131K context ($3/$15 per 1M tokens)"
+        "name": "Grok 3 Beta - Premium",
+        "description": "Grok 3 Beta with 131K context ($3.00/$15.00 per 1M tokens)"
     },
     {
         "id": "x-ai/grok-3-mini-beta",
-        "name": "Grok 3 Mini Beta",
-        "description": "xAI's efficient model with 131K context ($0.30/$0.50 per 1M tokens)"
-    },
-    {
-        "id": "mistralai/mistral-nemo",
-        "name": "Mistral Nemo",
-        "description": "Mistral's efficient model with 131K context ($0.01/$0.023 per 1M tokens)"
-    },
-    {
-        "id": "mistralai/mistral-small-3.1-24b-instruct",
-        "name": "Mistral Small 3.1",
-        "description": "Mistral's compact model with 131K context ($0.05/$0.15 per 1M tokens)"
+        "name": "Grok 3 Mini Beta - Premium",
+        "description": "Grok 3 Mini Beta with 131K context ($0.30/$0.50 per 1M tokens)"
     },
     {
         "id": "mistralai/mistral-nemo:free",
-        "name": "Mistral Nemo",
-        "description": "Mistral's efficient model with 131K context - Free"
+        "name": "Mistral Nemo - Free",
+        "description": "Mistral Nemo with 131K context - Free"
+    },
+    {
+        "id": "mistralai/mistral-small-3.1-24b-instruct:free",
+        "name": "Mistral Small 3.1 24B - Free",
+        "description": "Mistral Small 3.1 24B with 96K context - Free"
     },
     {
         "id": "nousresearch/hermes-3-llama-3.1-405b",
-        "name": "Hermes 3 405B",
-        "description": "Nous Research's large model with 131K context ($0.70/$0.80 per 1M tokens)"
+        "name": "Hermes 3 405B Instruct - Premium",
+        "description": "Hermes 3 405B Instruct with 131K context ($0.70/$0.80 per 1M tokens)"
     },
     {
-        "id": "qwen/qwen3-235b-a22b",
-        "name": "Qwen3 235B",
-        "description": "Alibaba's large model with 40K context ($0.13/$0.60 per 1M tokens)"
+        "id": "qwen/qwen3-235b-a22b:free",
+        "name": "Qwen3 235B A22B - Free",
+        "description": "Qwen3 235B A22B with 40K context - Free"
     },
     {
         "id": "qwen/qwen-2.5-7b-instruct",
-        "name": "Qwen 2.5 7B",
-        "description": "Alibaba's efficient 7B model with 32K context ($0.04/$0.10 per 1M tokens)"
+        "name": "Qwen2.5 7B Instruct",
+        "description": "Qwen2.5 7B Instruct with 32K context ($0.04/$0.10 per 1M tokens)"
     }
 ]
 

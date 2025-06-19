@@ -67,10 +67,16 @@ const removeStreamingDuplicates = (previousContent: string, newContent: string):
   return newContent;
 };
 
-export async function getModels(): Promise<Model[]> {
+export async function getModels(forceRefresh = false): Promise<Model[]> {
+  // If force refresh is requested, clear cache first
+  if (forceRefresh) {
+    console.log('Force refresh requested, clearing models cache');
+    chatCache.clearModelsCache();
+  }
+
   // First, try to get from cache
   const cachedModels = chatCache.getCachedModels();
-  if (cachedModels) {
+  if (cachedModels && !forceRefresh) {
     console.log(`Using ${cachedModels.length} cached models, skipping API call`);
     return cachedModels;
   }

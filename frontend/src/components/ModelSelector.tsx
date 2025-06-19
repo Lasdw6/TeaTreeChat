@@ -47,7 +47,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
     const fetchModels = async () => {
       try {
         setLoading(true);
-        const modelsList = await getModels();
+        const modelsList = await getModels(true); // Force refresh to get latest models with tags
         setModels(modelsList);
         
         // If no model is selected, select the default Llama 3.3 70B free model
@@ -232,23 +232,61 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
     }
   };
 
-  const getModelBadge = (model: Model) => {
-    if (model.id.includes(':free')) {
-      return <span className="px-2 py-0.5 text-xs bg-[#5B6F56] text-white rounded-full shadow-sm">FREE</span>;
+  const extractTagsFromName = (modelName: string): string[] => {
+    // Extract tags from model name (e.g., "Model Name - Free + Reasoning + Premium" or "Model (free) - Free")
+    // Find the last occurrence of " - " and extract everything after it
+    const lastDashIndex = modelName.lastIndexOf(' - ');
+    if (lastDashIndex === -1) {
+      return [];
     }
     
-    // Advanced reasoning models
-    if (model.id.includes('o3') || model.id.includes('o4') || model.id.includes('deepseek-r1') || model.id.includes('qwq') || model.id.includes(':thinking')) {
-      return <span className="px-2 py-0.5 text-xs bg-orange-600 text-white rounded-full shadow-sm">REASONING</span>;
-    }
+    const tagString = modelName.substring(lastDashIndex + 3); // +3 to skip " - "
+    const tags = tagString.split(' + ').map(tag => tag.trim().toUpperCase());
+    return tags;
+  };
+
+  const getCleanModelName = (modelName: string): string => {
+    // Remove tags from model name to get clean display name
+    const lastDashIndex = modelName.lastIndexOf(' - ');
+    if (lastDashIndex === -1) return modelName.trim();
     
-    // Premium flagship models
-    if (model.id.includes('gpt-4') || model.id.includes('claude-3.5') || model.id.includes('claude-3.7') || model.id.includes('claude-4') || model.id.includes('claude-opus') || model.id.includes('gemini-pro') || model.id.includes('grok-3') || model.id.includes('llama-4') || model.id.includes('hermes-3-405b')) {
-      return <span className="px-2 py-0.5 text-xs bg-purple-600 text-white rounded-full shadow-sm">PREMIUM</span>;
-    }
+    return modelName.substring(0, lastDashIndex).trim();
+  };
+
+  const getModelBadges = (model: Model) => {
+    const tags = extractTagsFromName(model.name);
     
-    // Standard models (no badge for cleaner look)
-    return null;
+    if (tags.length === 0) return null;
+    
+    return (
+      <div className="flex flex-wrap gap-1">
+        {tags.map((tag) => {
+          let badgeClass = '';
+          switch (tag) {
+            case 'FREE':
+              badgeClass = 'bg-[#5B6F56] text-white';
+              break;
+            case 'REASONING':
+              badgeClass = 'bg-orange-600 text-white';
+              break;
+            case 'PREMIUM':
+              badgeClass = 'bg-purple-600 text-white';
+              break;
+            default:
+              badgeClass = 'bg-gray-600 text-white';
+          }
+          
+          return (
+            <span 
+              key={tag}
+              className={`px-2 py-0.5 text-xs rounded-full shadow-sm font-medium ${badgeClass}`}
+            >
+              {tag}
+            </span>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
@@ -266,7 +304,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         ) : error ? (
             <span className="text-red-400">Error loading models</span>
           ) : selectedModelData ? (
-            <span className="truncate">{selectedModelData.name}</span>
+            <span className="truncate">{getCleanModelName(selectedModelData.name)}</span>
         ) : (
             <span className="text-[#D6BFA3]/60">Select a model</span>
         )}
@@ -287,8 +325,8 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
           className={`absolute ${dropdownPosition === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'} left-0 bg-[#4E342E] border border-[#5B6F56]/30 rounded-xl shadow-2xl shadow-[#5B6F56]/20 z-50 overflow-hidden flex flex-col`}
           style={{
             width: compact 
-              ? (isDetailedView ? 'min(500px, 90vw)' : 'min(350px, 90vw)')
-              : (isDetailedView ? 'min(1000px, 95vw)' : 'min(600px, 95vw)'),
+              ? (isDetailedView ? 'min(700px, 90vw)' : 'min(500px, 90vw)')
+              : (isDetailedView ? 'min(1200px, 95vw)' : 'min(800px, 95vw)'),
             maxHeight: `${maxDropdownHeight}px`,
             right: 0
           }}
@@ -334,7 +372,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                         </div>
                       </div>
                       <div className="flex space-x-1">
-                        {groupedModels[provider].some(m => m.id.includes(':free')) && (
+                        {groupedModels[provider].some(m => extractTagsFromName(m.name).includes('FREE')) && (
                           <span className="px-2 py-1 text-xs bg-[#5B6F56]/20 text-[#5B6F56] rounded-full border border-[#5B6F56]/30 font-medium">
                             Free Available
                           </span>
@@ -356,9 +394,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0 pr-2">
-                              <div className="flex items-center space-x-2 mb-2">
-                                <span className="font-semibold text-sm leading-tight">{model.name}</span>
-                                {getModelBadge(model)}
+                              <div className="mb-2">
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <span className="font-semibold text-sm leading-tight">{getCleanModelName(model.name)}</span>
+                                </div>
+                                {getModelBadges(model)}
                               </div>
                               <p className={`text-xs leading-relaxed line-clamp-2 ${
                                 selectedModel === model.id ? 'text-white/90' : 'text-[#D6BFA3]/70'
@@ -409,7 +449,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                           <h4 className="text-sm font-semibold text-[#D6BFA3]">{provider}</h4>
                           <span className="text-xs text-[#5B6F56]/60">({groupedModels[provider].length})</span>
                         </div>
-                        {groupedModels[provider].some(m => m.id.includes(':free')) && (
+                        {groupedModels[provider].some(m => extractTagsFromName(m.name).includes('FREE')) && (
                           <span className="px-2 py-0.5 text-xs bg-[#5B6F56]/20 text-[#5B6F56] rounded-full border border-[#5B6F56]/30">
                             Free
                           </span>
@@ -429,9 +469,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                               : 'text-[#D6BFA3] hover:bg-[#5B6F56]/10'
                           }`}
                         >
-                          <div className="flex items-center space-x-2 flex-1 min-w-0">
-                            <span className="font-medium text-sm truncate">{model.name}</span>
-                            {getModelBadge(model)}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <span className="font-medium text-sm truncate">{getCleanModelName(model.name)}</span>
+                            </div>
+                            {getModelBadges(model)}
                           </div>
                           {selectedModel === model.id && (
                             <svg className="w-4 h-4 text-white flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
