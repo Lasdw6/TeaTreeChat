@@ -28,7 +28,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isDetailedView, setIsDetailedView] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<'up' | 'down'>('up');
-  const [maxDropdownHeight, setMaxDropdownHeight] = useState<number>(400);
+  const [maxDropdownHeight, setMaxDropdownHeight] = useState<number>(600);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   
@@ -176,7 +176,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
     // If forceUpward is true, always position upward
     if (forceUpward) {
       setDropdownPosition('up');
-      setMaxDropdownHeight(400);
+      setMaxDropdownHeight(600);
       return;
     }
     
@@ -186,23 +186,23 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
     const spaceBelow = viewportHeight - buttonRect.bottom - 10; // 10px margin
     const spaceAbove = buttonRect.top - 10; // 10px margin
     
-    const maxHeightBelow = Math.min(400, spaceBelow);
-    const maxHeightAbove = Math.min(400, spaceAbove);
+    const maxHeightBelow = Math.min(600, spaceBelow);
+    const maxHeightAbove = Math.min(600, spaceAbove);
     
-    if (spaceBelow >= 300) {
+    if (spaceBelow >= 400) {
       setDropdownPosition('down');
-      setMaxDropdownHeight(Math.min(maxHeightBelow, viewportHeight * 0.8));
-    } else if (spaceAbove >= 300) {
+      setMaxDropdownHeight(Math.min(maxHeightBelow, viewportHeight * 0.85));
+    } else if (spaceAbove >= 400) {
       setDropdownPosition('up');
-      setMaxDropdownHeight(Math.min(maxHeightAbove, viewportHeight * 0.8));
+      setMaxDropdownHeight(Math.min(maxHeightAbove, viewportHeight * 0.85));
     } else {
       // If neither space is sufficient, choose the one with more space
       if (spaceBelow > spaceAbove) {
         setDropdownPosition('down');
-        setMaxDropdownHeight(Math.min(maxHeightBelow, viewportHeight * 0.8));
+        setMaxDropdownHeight(Math.min(maxHeightBelow, viewportHeight * 0.85));
       } else {
         setDropdownPosition('up');
-        setMaxDropdownHeight(Math.min(maxHeightAbove, viewportHeight * 0.8));
+        setMaxDropdownHeight(Math.min(maxHeightAbove, viewportHeight * 0.85));
       }
     }
   };
@@ -275,7 +275,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         <div 
           className={`absolute ${dropdownPosition === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'} left-0 bg-[#4E342E] border border-[#5B6F56]/30 rounded-xl shadow-2xl shadow-[#5B6F56]/20 z-50 overflow-hidden flex flex-col`}
           style={{
-            width: isDetailedView ? 'min(800px, 95vw)' : 'min(400px, 95vw)',
+            width: isDetailedView ? 'min(1000px, 95vw)' : 'min(600px, 95vw)',
             maxHeight: `${maxDropdownHeight}px`,
             right: 0
           }}
