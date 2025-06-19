@@ -26,8 +26,8 @@ export default function SettingsPage() {
   const handleSaveKey = async () => {
     setSaving(true);
     try {
-      await setApiKey(keyInput.trim());
-      await refreshUser();
+    await setApiKey(keyInput.trim());
+    await refreshUser();
       setShowSuccess(true);
       // Auto-hide success message after 3 seconds
       setTimeout(() => setShowSuccess(false), 3000);

@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from app.api.routes import router as api_router
@@ -25,6 +25,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Middleware to allow health checks from any origin
+@app.middleware("http")
+async def allow_health_check_cors(request: Request, call_next):
+    response = await call_next(request)
+    
+    # Allow CORS for health check endpoint from any origin
+    if request.url.path == "/api/health":
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+    
+    return response
+
 # Include API routes with prefix
 app.include_router(api_router, prefix="/api")
 
@@ -41,6 +54,7 @@ async def root():
 
 @app.get("/api/health")
 async def health_check():
+    """Health check endpoint - publicly accessible for monitoring services"""
     return {"status": "healthy", "message": "Server is awake and responsive"}
 
 # Graceful shutdown handling
