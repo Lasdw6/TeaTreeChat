@@ -15,8 +15,14 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   const theme = useTheme();
   const router = useRouter();
+
+  // Handle client-side hydration
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     // Show "..." if user has API key set, otherwise empty
@@ -24,13 +30,22 @@ export default function SettingsPage() {
   }, [user]);
 
   const handleSaveKey = async () => {
+    // Don't save if the input is just the placeholder dots
+    if (keyInput.trim() === "••••••••••••••••••••••••••••••••" || keyInput.trim() === "") {
+      return;
+    }
+
     setSaving(true);
     try {
-    await setApiKey(keyInput.trim());
-    await refreshUser();
+      await setApiKey(keyInput.trim());
+      await refreshUser();
       setShowSuccess(true);
       // Auto-hide success message after 3 seconds
       setTimeout(() => setShowSuccess(false), 3000);
+      // Reset to placeholder if user has a key
+      if (user?.has_api_key) {
+        setKeyInput("••••••••••••••••••••••••••••••••");
+      }
     } catch (error) {
       console.error('Error saving API key:', error);
     } finally {
@@ -52,7 +67,8 @@ export default function SettingsPage() {
     router.push('/chat');
   };
 
-  const hasKey = !!(user?.has_api_key || apiKey || (typeof window !== 'undefined' && localStorage.getItem('apiKey')));
+  // Calculate hasKey in a hydration-safe way
+  const hasKey = !!(user?.has_api_key || apiKey || (isClient && localStorage.getItem('apiKey')));
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#5B6F56', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', px: 2 }}>
@@ -64,7 +80,7 @@ export default function SettingsPage() {
       >
         Back
       </Button>
-      <Paper elevation={4} sx={{ p: { xs: 2, sm: 5 }, bgcolor: '#4E342E', color: '#fff', minWidth: 320, borderRadius: 4, maxWidth: 500, width: '100%', boxShadow: '0 8px 32px 0 rgba(91,111,86,0.18)', position: 'relative' }}>
+      <Paper elevation={0} sx={{ p: { xs: 2, sm: 5 }, bgcolor: '#4E342E', color: '#fff', minWidth: 320, borderRadius: 4, maxWidth: 500, width: '100%', boxShadow: 'none', position: 'relative' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
           <TeaTreeLogo size={56} />
           <Typography variant="h4" sx={{ fontWeight: 700, color: '#D6BFA3', flexGrow: 1, letterSpacing: 1, ml: 2 }}>Settings</Typography>
@@ -116,7 +132,7 @@ export default function SettingsPage() {
           variant="contained"
           sx={{ fontWeight: 700, bgcolor: '#D6BFA3', color: '#4E342E', borderRadius: 2, boxShadow: '0 2px 8px 0 rgba(91,111,86,0.10)', '&:hover': { bgcolor: '#bfae8c' }, mb: 3 }}
           onClick={handleSaveKey}
-          disabled={saving}
+          disabled={saving || keyInput.trim() === "••••••••••••••••••••••••••••••••" || keyInput.trim() === ""}
           fullWidth
         >
           {saving ? 'Saving...' : 'Save Key'}

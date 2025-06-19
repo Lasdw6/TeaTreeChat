@@ -148,18 +148,19 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
               <ReactMarkdown 
                 children={processedContent}
                 components={{
-              p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
-              h1: ({ children }) => <h1 className="text-xl font-bold mt-6 mb-4">{children}</h1>,
-              h2: ({ children }) => <h2 className="text-lg font-bold mt-5 mb-3">{children}</h2>,
-              h3: ({ children }) => <h3 className="text-base font-bold mt-4 mb-2">{children}</h3>,
-              ul: ({ children }) => <ul className="list-disc pl-6 mb-4">{children}</ul>,
-              ol: ({ children }) => <ol className="list-decimal pl-6 mb-4">{children}</ol>,
-              a: ({ href, children }) => (
+              p: ({ children }: any) => <p className="mb-4 last:mb-0">{children}</p>,
+              h1: ({ children }: any) => <h1 className="text-xl font-bold mt-6 mb-4">{children}</h1>,
+              h2: ({ children }: any) => <h2 className="text-lg font-bold mt-5 mb-3">{children}</h2>,
+              h3: ({ children }: any) => <h3 className="text-base font-bold mt-4 mb-2">{children}</h3>,
+              ul: ({ children }: any) => <ul className="list-disc pl-6 mb-4">{children}</ul>,
+              ol: ({ children }: any) => <ol className="list-decimal pl-6 mb-4">{children}</ol>,
+              a: ({ href, children, ...props }: any) => (
                 <a 
                   href={href} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   style={{ color: '#4E342E' }}
+                  {...props}
                 >
                   {children}
                 </a>

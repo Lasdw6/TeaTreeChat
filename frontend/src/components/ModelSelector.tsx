@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Model } from '@/types/chat';
-import { getModels } from '@/lib/api';
+import { getModels, DEFAULT_MODEL } from '@/lib/api';
 
 interface ModelSelectorProps {
   selectedModel: string;
@@ -49,9 +49,17 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         const modelsList = await getModels();
         setModels(modelsList);
         
-        // If no model is selected, select the first one
+        // If no model is selected, select the default Llama 3.3 70B free model
         if (!selectedModel && modelsList.length > 0) {
-          onModelChange(modelsList[0].id);
+          const defaultModel = modelsList.find(model => model.id === DEFAULT_MODEL);
+          if (defaultModel) {
+            console.log('Setting default model to Llama 3.3 70B free');
+            onModelChange(defaultModel.id);
+          } else {
+            // Fallback to first model if default not found
+            console.log('Default model not found, using first available model');
+            onModelChange(modelsList[0].id);
+          }
         }
       } catch (err) {
         setError('Failed to load models');

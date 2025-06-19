@@ -6,14 +6,13 @@ import { useRouter } from 'next/navigation';
 import { Menu as MenuIcon, ChevronLeft as ChevronLeftIcon } from '@mui/icons-material';
 import { useAuth } from '@/app/AuthProvider';
 import { useTheme } from '@mui/material/styles';
-import { Snackbar, Alert, Typography, Box } from '@mui/material';
+import { Snackbar, Alert, Typography, Box, Fade } from '@mui/material';
 import TeaTreeLogo from './TeaTreeLogo';
 import chatCache from '@/lib/chatCache';
-import { getModels } from '@/lib/api';
+import { getModels, DEFAULT_MODEL } from '@/lib/api';
 import { Model } from '@/types/chat';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-const DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
 console.log('DEFAULT_MODEL defined as:', DEFAULT_MODEL);
 
 interface Message {
@@ -43,6 +42,8 @@ export default function Chat() {
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
   const [availableModels, setAvailableModels] = useState<Model[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [isChatLoading, setIsChatLoading] = useState(false);
   const router = useRouter();
   const { user, token } = useAuth();
   const theme = useTheme();
@@ -80,6 +81,14 @@ export default function Chat() {
       }
     };
     fetchModels();
+  }, []);
+
+  // Handle initial loading state
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsInitializing(false);
+    }, 100); // Small delay to prevent flash
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -123,12 +132,13 @@ export default function Chat() {
 
   const fetchChatMessages = async (chatId: number) => {
     try {
-      setIsLoading(true);
-      
-      // First, try to load from cache for instant display
+      // Check if we have fresh cached data
       const cachedChat = chatCache.getCachedChatWithMessages(chatId);
-      if (cachedChat?.messages) {
-        console.log(`Loading messages for chat ${chatId} from cache`);
+      const shouldRefresh = chatCache.shouldRefreshChat(chatId);
+      
+      if (cachedChat?.messages && !shouldRefresh) {
+        // Use cached data without API call - it's fresh enough
+        console.log(`Using fresh cached data for chat ${chatId}, skipping API call`);
         setMessages(cachedChat.messages);
         setSelectedChat({
           id: cachedChat.id,
@@ -138,23 +148,48 @@ export default function Chat() {
           last_message: cachedChat.last_message || null
         });
         
-        // Immediately update model based on cached messages
+        // Update model based on cached messages
         const lastUsedModel = getLastUsedModel(cachedChat.messages);
         console.log(`Setting model from cached messages: ${lastUsedModel}`);
         setSelectedModel(lastUsedModel);
+        
+        // Mark as accessed to update the cache timestamp
+        chatCache.markAsAccessed(chatId);
+        return; // Exit early - no API call needed
       }
       
-      // Then fetch fresh data
+      setIsChatLoading(true);
+      
+      // If we have cached data but it's stale, show it immediately while fetching fresh data
+      if (cachedChat?.messages) {
+        console.log(`Loading stale cached data for chat ${chatId} while fetching fresh data`);
+        setMessages(cachedChat.messages);
+        setSelectedChat({
+          id: cachedChat.id,
+          title: cachedChat.title,
+          created_at: cachedChat.created_at,
+          message_count: cachedChat.message_count || 0,
+          last_message: cachedChat.last_message || null
+        });
+        
+        // Update model based on cached messages
+        const lastUsedModel = getLastUsedModel(cachedChat.messages);
+        console.log(`Setting model from cached messages: ${lastUsedModel}`);
+        setSelectedModel(lastUsedModel);
+        setIsChatLoading(false); // Stop loading UI since we have something to show
+      }
+      
+      // Fetch fresh data from API
+      console.log(`Fetching fresh data for chat ${chatId} from API`);
       const response = await fetch(`${API_BASE_URL}/chats/${chatId}/messages`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       });
       if (!response.ok) throw new Error('Failed to fetch chat messages');
       const data = await response.json();
       
-      console.log('Fetched messages from API:', data);
-      console.log('Message models:', data.map((m: any) => ({ id: m.id, role: m.role, model: m.model })));
+      console.log('Fetched fresh messages from API:', data);
       
-      // Cache the messages for quick access later
+      // Cache the fresh messages
       chatCache.cacheMessages(chatId, data);
       setMessages(data);
       
@@ -163,28 +198,37 @@ export default function Chat() {
       console.log(`Setting model from fresh messages: ${lastUsedModel}`);
       setSelectedModel(lastUsedModel);
 
-      // Fetch chat details
-      const chatResponse = await fetch(`${API_BASE_URL}/chats/${chatId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined
-      });
-      if (chatResponse.ok) {
-        const chatData = await chatResponse.json();
-        setSelectedChat(chatData);
+      // Fetch chat details if we don't have them cached or they're stale
+      if (!cachedChat || shouldRefresh) {
+        const chatResponse = await fetch(`${API_BASE_URL}/chats/${chatId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined
+        });
+        if (chatResponse.ok) {
+          const chatData = await chatResponse.json();
+          setSelectedChat(chatData);
+        }
       }
     } catch (error) {
       console.error('Error fetching chat messages:', error);
       // If we have cached messages and API fails, keep using them
       const cachedChat = chatCache.getCachedChatWithMessages(chatId);
       if (cachedChat?.messages && messages.length === 0) {
-        console.log('API failed, using cached messages');
+        console.log('API failed, using cached messages as fallback');
         setMessages(cachedChat.messages);
+        setSelectedChat({
+          id: cachedChat.id,
+          title: cachedChat.title,
+          created_at: cachedChat.created_at,
+          message_count: cachedChat.message_count || 0,
+          last_message: cachedChat.last_message || null
+        });
         // Update model based on cached messages
         const lastUsedModel = getLastUsedModel(cachedChat.messages);
         console.log(`Setting model from fallback cached messages: ${lastUsedModel}`);
         setSelectedModel(lastUsedModel);
       }
     } finally {
-      setIsLoading(false);
+      setIsChatLoading(false);
     }
   };
 
@@ -441,6 +485,14 @@ export default function Chat() {
       // Clear streaming state
       setStreamingMessageId(undefined);
       
+      // Update cache with new messages
+      if (selectedChatId) {
+        setMessages(currentMessages => {
+          chatCache.cacheMessages(selectedChatId, currentMessages);
+          return currentMessages;
+        });
+      }
+      
       // Refresh chat list
       setShouldRefreshChats(true);
     } catch (error) {
@@ -695,6 +747,14 @@ export default function Chat() {
       // Clear streaming state
       setStreamingMessageId(undefined);
       
+      // Update cache with new messages
+      if (selectedChatId) {
+        setMessages(currentMessages => {
+          chatCache.cacheMessages(selectedChatId, currentMessages);
+          return currentMessages;
+        });
+      }
+      
       // Refresh chat list
       setShouldRefreshChats(true);
     } catch (error) {
@@ -770,12 +830,12 @@ export default function Chat() {
   return (
     <div className="flex h-screen" style={{ background: 'transparent' }}>
       {/* Collapsible Sidebar */}
-      <div className={`transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col`} style={{ background: '#D6BFA3', paddingRight: '4px', paddingTop: '4px' }}>
+      <div className={`transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col`} style={{ background: '#4E342E', paddingRight: '4px', paddingTop: '4px' }}>
         <button
           className="p-2 w-full text-left focus:outline-none hover:text-white cursor-pointer flex items-center justify-center"
           style={{ 
-            color: '#4E342E', 
-            backgroundColor: '#D6BFA3',
+            color: '#D6BFA3', 
+            backgroundColor: '#4E342E',
             transition: 'all 0.2s ease',
             border: 'none',
             zIndex: 10,
@@ -802,7 +862,7 @@ export default function Chat() {
         )}
       </div>
       <div className="flex-1 flex flex-col" style={{ background: 'transparent' }}>
-        {!selectedChatId ? (
+        {(isInitializing || isChatLoading) && (
           <div className="flex-1 flex items-center justify-center">
             <Box sx={{ 
               textAlign: 'center', 
@@ -812,7 +872,42 @@ export default function Chat() {
               bgcolor: 'rgba(78, 52, 46, 0.1)',
               borderRadius: 4,
               backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(214, 191, 163, 0.2)'
+              border: '1px solid rgba(214, 191, 163, 0.2)',
+              animation: 'fadeIn 0.3s ease-in-out'
+            }}>
+              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
+                <TeaTreeLogo size={80} />
+              </Box>
+              <Typography variant="h4" sx={{ 
+                color: '#D6BFA3', 
+                fontWeight: 700, 
+                mb: 2, 
+                letterSpacing: 1 
+              }}>
+                TeaTree Chat
+              </Typography>
+              <Typography variant="body1" sx={{ 
+                color: 'rgba(255, 255, 255, 0.8)', 
+                fontSize: 16,
+                lineHeight: 1.6 
+              }}>
+                {isChatLoading ? 'Loading chat...' : 'Initializing...'}
+              </Typography>
+            </Box>
+          </div>
+        )}
+        {!isInitializing && !isChatLoading && !selectedChatId && (
+          <div className="flex-1 flex items-center justify-center">
+            <Box sx={{ 
+              textAlign: 'center', 
+              maxWidth: 500, 
+              px: 4,
+              py: 6,
+              bgcolor: 'rgba(78, 52, 46, 0.1)',
+              borderRadius: 4,
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(214, 191, 163, 0.2)',
+              animation: 'fadeIn 0.3s ease-in-out'
             }}>
               <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
                 <TeaTreeLogo size={80} />
@@ -842,7 +937,8 @@ export default function Chat() {
               </Typography>
             </Box>
           </div>
-        ) : messages.length === 0 ? (
+        )}
+        {!isInitializing && !isChatLoading && selectedChatId && messages.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center min-h-0 py-8">
             <div className="w-full max-w-2xl rounded-2xl shadow-lg bg-gray-800" style={{ marginTop: '20vh' }}>
               <MessageInput
@@ -855,7 +951,8 @@ export default function Chat() {
               />
             </div>
           </div>
-        ) : (
+        )}
+        {!isInitializing && !isChatLoading && selectedChatId && messages.length > 0 && (
           <>
             <MessageList 
               messages={messages}

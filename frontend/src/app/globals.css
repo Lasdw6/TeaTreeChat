@@ -169,4 +169,15 @@ html, body {
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #bfae8c;
   }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 } 

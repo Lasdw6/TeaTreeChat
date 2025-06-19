@@ -17,14 +17,16 @@ import {
   Paper,
   Divider,
   Chip,
+  CircularProgress,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { Chat } from '@/types/chat';
 import { useAuth } from '@/app/AuthProvider';
+import chatCache from '@/lib/chatCache';
+import { DEFAULT_MODEL } from '@/lib/api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const DEFAULT_USER_ID = 1;
-const DEFAULT_FREE_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
 
 interface User {
   id: number;
@@ -43,6 +45,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   const { user, token, refreshUser, apiKey } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false);
   const [newChatTitle, setNewChatTitle] = useState('');
   const [isRenameChatDialogOpen, setIsRenameChatDialogOpen] = useState(false);
@@ -58,7 +61,11 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
 
   useEffect(() => {
     if (chats.length > 0 && !selectedChatId) {
-      onSelectChat(chats[0].id);
+      // Add a small delay to prevent jarring transitions
+      const timer = setTimeout(() => {
+        onSelectChat(chats[0].id);
+      }, 200);
+      return () => clearTimeout(timer);
     }
   }, [chats, selectedChatId, onSelectChat]);
 
@@ -74,7 +81,24 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
 
   const fetchChats = async () => {
     if (!user || !token) return;
+    
+    // First, load from cache for instant display
+    const cachedChats = chatCache.getCachedChats();
+    if (cachedChats.length > 0) {
+      console.log('Loading chats from cache');
+      setChats(cachedChats);
+      if (error) setError(null);
+    }
+    
+    // Check if we should refresh from API
+    if (chatCache.hasCachedData()) {
+      console.log('Using cached chat data, skipping API call');
+      return;
+    }
+    
     try {
+      setIsLoading(true);
+      console.log('Fetching fresh chat data from API');
       const response = await fetch(`${API_BASE_URL}/chats?user_id=${user.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -83,11 +107,21 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       data.sort((a: Chat, b: Chat) => {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
+      
+      // Update cache with fresh data
+      chatCache.updateChats(data);
       setChats(data);
       if (error) setError(null);
     } catch (err) {
       setError('Failed to load chats. Please try again later.');
       console.error(err);
+      // If API fails but we have cached data, keep using it
+      if (cachedChats.length > 0) {
+        console.log('API failed, keeping cached chat data');
+        setError(null);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -103,12 +137,13 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         body: JSON.stringify({ 
           title: newChatTitle,
           user_id: user.id,
-          model: DEFAULT_FREE_MODEL
+          model: DEFAULT_MODEL
         }),
       });
       if (!response.ok) throw new Error('Failed to create chat');
       const newChat = await response.json();
       setChats(prev => [newChat, ...prev]);
+      chatCache.addNewChat(newChat); // Update cache
       setIsNewChatDialogOpen(false);
       setNewChatTitle('');
       onSelectChat(newChat.id);
@@ -128,6 +163,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       });
       if (!response.ok) throw new Error('Failed to delete chat');
       setChats(prev => prev.filter(chat => chat.id !== chatId));
+      chatCache.removeChat(chatId); // Update cache
       if (selectedChatId === chatId) {
         onSelectChat(null);
       }
@@ -163,6 +199,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       setChats(prev => prev.map(chat => 
         chat.id === renameChatId ? { ...chat, title: updatedChat.title } : chat
       ));
+      chatCache.updateChatTitle(renameChatId, updatedChat.title); // Update cache
       setIsRenameChatDialogOpen(false);
       setRenameChatId(null);
       setRenameChatTitle('');
@@ -194,7 +231,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         position: 'absolute',
         inset: 0,
         zIndex: 0,
-        background: 'linear-gradient(135deg, rgba(214,191,163,0.08) 0%, rgba(91,111,86,0.12) 100%)',
+        background: 'transparent',
         pointerEvents: 'none',
       },
     }}>
@@ -264,7 +301,11 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
           px: 1
         }
       }}>
-        {chats.map((chat) => (
+        {isLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress size={24} sx={{ color: '#D6BFA3' }} />
+          </Box>
+        ) : chats.map((chat) => (
           <ListItem
             key={chat.id}
             disablePadding

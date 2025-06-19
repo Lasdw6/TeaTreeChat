@@ -1,6 +1,10 @@
 import { ChatRequest, ChatResponse, Message, Model, StreamingChunk } from '@/types/chat';
+import chatCache from './chatCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+
+// Default model configuration
+export const DEFAULT_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
 
 // Function to ping the server and wake it up if sleeping
 export async function pingServer(): Promise<boolean> {
@@ -67,6 +71,14 @@ const removeStreamingDuplicates = (previousContent: string, newContent: string):
 };
 
 export async function getModels(): Promise<Model[]> {
+  // First, try to get from cache
+  const cachedModels = chatCache.getCachedModels();
+  if (cachedModels) {
+    console.log(`Using ${cachedModels.length} cached models, skipping API call`);
+    return cachedModels;
+  }
+
+  // If no cache or cache is stale, fetch from API
   console.log(`Fetching models from ${API_BASE_URL}/models`);
   const response = await fetch(`${API_BASE_URL}/models`);
   
@@ -77,6 +89,10 @@ export async function getModels(): Promise<Model[]> {
   
   const data = await response.json();
   console.log(`Received ${data.models.length} models from API`);
+  
+  // Cache the models for future use
+  chatCache.cacheModels(data.models);
+  
   return data.models;
 }
 

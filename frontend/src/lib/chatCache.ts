@@ -1,7 +1,8 @@
-import { Chat } from '@/types/chat';
+import { Chat, Model } from '@/types/chat';
 
 const CACHE_KEY = 'teatree_recent_chats';
-const MAX_CACHED_CHATS = 5;
+const MODELS_CACHE_KEY = 'teatree_models_cache';
+const MAX_CACHED_CHATS = 10;
 
 interface CachedChat extends Chat {
   lastAccessed: number;
@@ -13,14 +14,25 @@ interface ChatCache {
   lastUpdated: number;
 }
 
+interface ModelsCache {
+  models: Model[];
+  lastUpdated: number;
+}
+
 class ChatCacheManager {
   private cache: ChatCache = {
     chats: [],
     lastUpdated: 0
   };
 
+  private modelsCache: ModelsCache = {
+    models: [],
+    lastUpdated: 0
+  };
+
   constructor() {
     this.loadFromStorage();
+    this.loadModelsFromStorage();
   }
 
   private loadFromStorage(): void {
@@ -148,6 +160,102 @@ class ChatCacheManager {
     return {
       count: this.cache.chats.length,
       lastUpdated: this.cache.lastUpdated ? new Date(this.cache.lastUpdated) : null
+    };
+  }
+
+  public getAllCacheInfo(): { 
+    chats: { count: number; lastUpdated: Date | null };
+    models: { count: number; lastUpdated: Date | null };
+  } {
+    return {
+      chats: this.getCacheInfo(),
+      models: this.getModelsCacheInfo()
+    };
+  }
+
+  public isChatCached(chatId: number): boolean {
+    return this.cache.chats.some(chat => chat.id === chatId && chat.messages);
+  }
+
+  public isChatCacheFresh(chatId: number, maxAgeMinutes: number = 5): boolean {
+    const chat = this.cache.chats.find(c => c.id === chatId);
+    if (!chat || !chat.messages) return false;
+    
+    const ageInMinutes = (Date.now() - chat.lastAccessed) / (1000 * 60);
+    return ageInMinutes < maxAgeMinutes;
+  }
+
+  public shouldRefreshChat(chatId: number): boolean {
+    return !this.isChatCached(chatId) || !this.isChatCacheFresh(chatId);
+  }
+
+  // Models cache methods
+  private loadModelsFromStorage(): void {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const stored = localStorage.getItem(MODELS_CACHE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Only load if cache is less than 24 hours old (models don't change often)
+        if (Date.now() - parsed.lastUpdated < 86400000) {
+          this.modelsCache = parsed;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load models cache:', error);
+      this.clearModelsCache();
+    }
+  }
+
+  private saveModelsToStorage(): void {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      localStorage.setItem(MODELS_CACHE_KEY, JSON.stringify(this.modelsCache));
+    } catch (error) {
+      console.error('Failed to save models cache:', error);
+    }
+  }
+
+  public getCachedModels(): Model[] | null {
+    // Return cached models if they're less than 24 hours old
+    if (this.modelsCache.models.length > 0 && 
+        (Date.now() - this.modelsCache.lastUpdated < 86400000)) {
+      console.log('Using cached models');
+      return this.modelsCache.models;
+    }
+    return null;
+  }
+
+  public cacheModels(models: Model[]): void {
+    console.log(`Caching ${models.length} models`);
+    this.modelsCache = {
+      models,
+      lastUpdated: Date.now()
+    };
+    this.saveModelsToStorage();
+  }
+
+  public hasValidModelsCache(): boolean {
+    return this.modelsCache.models.length > 0 && 
+           (Date.now() - this.modelsCache.lastUpdated < 86400000);
+  }
+
+  public clearModelsCache(): void {
+    this.modelsCache = {
+      models: [],
+      lastUpdated: 0
+    };
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(MODELS_CACHE_KEY);
+    }
+  }
+
+  public getModelsCacheInfo(): { count: number; lastUpdated: Date | null } {
+    return {
+      count: this.modelsCache.models.length,
+      lastUpdated: this.modelsCache.lastUpdated ? new Date(this.modelsCache.lastUpdated) : null
     };
   }
 }
