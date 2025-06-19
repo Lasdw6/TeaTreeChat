@@ -63,6 +63,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               disabled={disabled}
               className="w-40 flex-shrink-0"
               forceUpward={forceUpward}
+              compact={true}
             />
             <textarea
               ref={textareaRef}

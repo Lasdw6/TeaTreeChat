@@ -8,6 +8,7 @@ interface ModelSelectorProps {
   disabled?: boolean;
   className?: string;
   forceUpward?: boolean;
+  compact?: boolean;
 }
 
 interface GroupedModels {
@@ -20,6 +21,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   disabled = false,
   className = '',
   forceUpward = false,
+  compact = false,
 }) => {
   const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(true);
@@ -275,7 +277,9 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         <div 
           className={`absolute ${dropdownPosition === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'} left-0 bg-[#4E342E] border border-[#5B6F56]/30 rounded-xl shadow-2xl shadow-[#5B6F56]/20 z-50 overflow-hidden flex flex-col`}
           style={{
-            width: isDetailedView ? 'min(1000px, 95vw)' : 'min(600px, 95vw)',
+            width: compact 
+              ? (isDetailedView ? 'min(500px, 90vw)' : 'min(350px, 90vw)')
+              : (isDetailedView ? 'min(1000px, 95vw)' : 'min(600px, 95vw)'),
             maxHeight: `${maxDropdownHeight}px`,
             right: 0
           }}
