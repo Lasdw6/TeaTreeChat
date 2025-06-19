@@ -154,6 +154,16 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
               h3: ({ children }) => <h3 className="text-base font-bold mt-4 mb-2">{children}</h3>,
               ul: ({ children }) => <ul className="list-disc pl-6 mb-4">{children}</ul>,
               ol: ({ children }) => <ol className="list-decimal pl-6 mb-4">{children}</ol>,
+              a: ({ href, children }) => (
+                <a 
+                  href={href} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{ color: '#4E342E' }}
+                >
+                  {children}
+                </a>
+              ),
               code: ({ node, inline, className, children, ...props }) => {
                 const match = /language-(\w+)/.exec(className || '');
                 return !inline ? (

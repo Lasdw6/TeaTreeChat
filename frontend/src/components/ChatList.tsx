@@ -441,10 +441,10 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
             borderRadius: 1.5,
             boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
           }}>
-            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: (hasKey ? '#5B6F56' : '#ef4444'), mr: 0.7 }} />
+          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: (hasKey ? '#5B6F56' : '#ef4444'), mr: 0.7 }} />
             <Typography variant="caption" sx={{ color: '#4E342E', fontWeight: 600, fontSize: '0.75rem' }}>
-              {hasKey ? 'API Key Set' : 'No API Key'}
-            </Typography>
+            {hasKey ? 'API Key Set' : 'No API Key'}
+          </Typography>
           </Box>
         </Box>
       </Paper>

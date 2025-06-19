@@ -198,7 +198,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
             "- credits calculator\n"
             "- custom models selection\n"
             "- imporoved reasoning model support\n"
-            "- and more!!!_ ✨"
+            "- and more!!! ✨"
         ),
         model="meta-llama/llama-3.3-70b-instruct:free"
     )
