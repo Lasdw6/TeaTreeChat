@@ -3,9 +3,6 @@ import chatCache from './chatCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
-// Default model configuration
-export const DEFAULT_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
-
 // Function to ping the server and wake it up if sleeping
 export async function pingServer(): Promise<boolean> {
   try {

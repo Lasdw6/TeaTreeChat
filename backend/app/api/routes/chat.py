@@ -193,11 +193,6 @@ AVAILABLE_MODELS = [
         "description": "Meta's latest 70B model with 131K context - Free"
     },
     {
-        "id": "meta-llama/llama-3.1-70b-instruct:free",
-        "name": "Llama 3.1 70B", 
-        "description": "Meta's proven 70B model with 131K context - Free"
-    },
-    {
         "id": "meta-llama/llama-3.1-8b-instruct:free",
         "name": "Llama 3.1 8B",
         "description": "Meta's efficient 8B model with 131K context - Free"
@@ -295,11 +290,6 @@ AVAILABLE_MODELS = [
         "id": "qwen/qwen-2.5-7b-instruct",
         "name": "Qwen 2.5 7B",
         "description": "Alibaba's efficient 7B model with 32K context ($0.04/$0.10 per 1M tokens)"
-    },
-    {
-        "id": "qwen/qwen-2.5-7b-instruct:free",
-        "name": "Qwen 2.5 7B",
-        "description": "Alibaba's efficient 7B model with 32K context - Free"
     }
 ]
 

@@ -23,7 +23,7 @@ import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/ico
 import { Chat } from '@/types/chat';
 import { useAuth } from '@/app/AuthProvider';
 import chatCache from '@/lib/chatCache';
-import { DEFAULT_MODEL } from '@/lib/api';
+import { DEFAULT_MODEL } from '@/lib/constants';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 const DEFAULT_USER_ID = 1;

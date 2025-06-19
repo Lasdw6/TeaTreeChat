@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Model } from '@/types/chat';
-import { getModels, DEFAULT_MODEL } from '@/lib/api';
+import { getModels } from '@/lib/api';
+import { DEFAULT_MODEL } from '@/lib/constants';
 
 interface ModelSelectorProps {
   selectedModel: string;

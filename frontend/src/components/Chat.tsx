@@ -9,8 +9,9 @@ import { useTheme } from '@mui/material/styles';
 import { Snackbar, Alert, Typography, Box, Fade } from '@mui/material';
 import TeaTreeLogo from './TeaTreeLogo';
 import chatCache from '@/lib/chatCache';
-import { getModels, DEFAULT_MODEL } from '@/lib/api';
+import { getModels } from '@/lib/api';
 import { Model } from '@/types/chat';
+import { DEFAULT_MODEL } from '@/lib/constants';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 console.log('DEFAULT_MODEL defined as:', DEFAULT_MODEL);
