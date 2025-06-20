@@ -294,6 +294,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
       {/* Selected Model Button */}
       <button
         ref={buttonRef}
+        type="button"
         onClick={handleToggleDropdown}
         disabled={disabled || showLoading}
         className="w-full h-12 px-4 py-2 bg-[#4E342E]/80 border border-[#D6BFA3]/30 rounded-xl text-[#D6BFA3] focus:outline-none focus:ring-2 focus:ring-[#5B6F56] focus:border-[#5B6F56] transition-all backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between hover:bg-[#4E342E] hover:border-[#5B6F56]/50 hover:shadow-lg hover:shadow-[#5B6F56]/10"

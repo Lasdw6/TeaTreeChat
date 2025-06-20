@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ChatList from './ChatList';
-import MessageList from './MessageList';
+import MessageList, { MessageListRef } from './MessageList';
 import MessageInput from './MessageInput';
 import { useRouter } from 'next/navigation';
-import { Menu as MenuIcon, ChevronLeft as ChevronLeftIcon } from '@mui/icons-material';
+import { Menu as MenuIcon, ChevronLeft as ChevronLeftIcon, ArrowDownward as ArrowDownwardIcon } from '@mui/icons-material';
 import { useAuth } from '@/app/AuthProvider';
 import { useTheme } from '@mui/material/styles';
-import { Snackbar, Alert, Typography, Box, Fade } from '@mui/material';
+import { Box, Fade, Fab, Typography } from '@mui/material';
 import TeaTreeLogo from './TeaTreeLogo';
 import chatCache from '@/lib/chatCache';
 import { getModels } from '@/lib/api';
@@ -48,13 +48,14 @@ export default function Chat() {
   const router = useRouter();
   const { user, token } = useAuth();
   const theme = useTheme();
-  const [errorText, setErrorText] = useState<string | null>(null);
   const idCounter = useRef(0);
   const [apiKey, setApiKey] = useState<string | null>(null);
+  const messageListRef = useRef<MessageListRef>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
 
   function getUniqueId() {
     idCounter.current += 1;
-    return `msg_${idCounter.current}`;
+    return `msg_${Date.now()}_${idCounter.current}`;
   }
 
   // Function to get the last used model from messages
@@ -95,12 +96,21 @@ export default function Chat() {
   useEffect(() => {
     if (selectedChatId) {
       fetchChatMessages(selectedChatId);
+      idCounter.current = 0; // Reset counter when chat changes
     } else {
       setMessages([]);
       // Reset to default model when no chat is selected
       setSelectedModel(DEFAULT_MODEL);
     }
   }, [selectedChatId]);
+
+  useEffect(() => {
+    if (!streamingMessageId) {
+      setTimeout(() => {
+        messageListRef.current?.checkScrollPosition();
+      }, 100);
+    }
+  }, [streamingMessageId]);
 
   // Update selected model based on last message when messages change
   // Only run this if we don't have a selectedChatId (for new chats)
@@ -255,7 +265,6 @@ export default function Chat() {
         chat_id: selectedChatId,
         model: selectedModel
       }]);
-      setErrorText(errMsg);
       return;
     }
 
@@ -303,7 +312,7 @@ export default function Chat() {
           model: selectedModel
         };
         setMessages(prev => [...prev, userMessage, newSystemMsg]);
-        setErrorText(errMsg);
+        setStreamingMessageId(undefined);
         throw new Error(errMsg);
       }
 
@@ -358,7 +367,7 @@ export default function Chat() {
             model: selectedModel
           }
         ]);
-        setErrorText(errMsg);
+        setStreamingMessageId(undefined);
         throw new Error(errMsg);
       }
 
@@ -411,7 +420,6 @@ export default function Chat() {
                 const errMsg: string = parsed.detail;
                 accumulatedContent = errMsg;
                 updateMessage(errMsg);
-                setErrorText(errMsg);
                 setStreamingMessageId(undefined);
                 // Cancel further reading
                 reader?.cancel().catch(() => {});
@@ -526,7 +534,6 @@ export default function Chat() {
     // Only allow regeneration of messages that have database IDs (numeric)
     if (typeof messageToRegenerate.id === 'string' && messageToRegenerate.id.startsWith('msg_')) {
       console.error('Cannot regenerate temporary message:', messageToRegenerate.id);
-      setErrorText('Cannot regenerate a message that is still being processed. Please wait for it to complete.');
       setIsLoading(false);
       return;
     }
@@ -602,7 +609,7 @@ export default function Chat() {
             return msg;
           })
         );
-        setErrorText(errMsg);
+        setStreamingMessageId(undefined);
         throw new Error(errMsg);
       }
 
@@ -677,7 +684,7 @@ export default function Chat() {
                   const errMsg:string = parsed.detail;
                   accumulatedContent = errMsg;
                   updateMessage(errMsg);
-                  setErrorText(errMsg);
+                  setStreamingMessageId(undefined);
                   // Cancel further reading
                   reader?.cancel().catch(()=>{});
                   break;
@@ -956,26 +963,55 @@ export default function Chat() {
         {!isInitializing && !isChatLoading && selectedChatId && messages.length > 0 && (
           <>
             <MessageList 
+              key={selectedChatId}
+              ref={messageListRef}
               messages={messages}
               loading={isLoading && messages.length === 0}
               streamingMessageId={streamingMessageId}
               onRegenerate={handleRegenerate}
               onFork={handleFork}
               availableModels={availableModels}
+              onScrollPositionChange={setIsAtBottom}
             />
-            <MessageInput
-              onSendMessage={handleSend}
-              disabled={isLoading}
-              placeholder="Type your message..."
-              selectedModel={selectedModel}
-              onModelChange={setSelectedModel}
-            />
+            <div style={{ position: 'relative' }}>
+              {!isAtBottom && !streamingMessageId && (
+                <Fab
+                  variant="extended"
+                  onClick={() => messageListRef.current?.scrollToBottom()}
+                  sx={{
+                    position: 'absolute',
+                    bottom: '90px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 1000,
+                    backgroundColor: '#4E342E',
+                    color: '#D6BFA3',
+                    borderRadius: '16px',
+                    height: '32px',
+                    padding: '0 12px',
+                    fontSize: '0.8rem',
+                    opacity: 0.6,
+                    '&:hover': {
+                      backgroundColor: '#6D4C41',
+                      opacity: 1,
+                    },
+                  }}
+                >
+                  <ArrowDownwardIcon sx={{ mr: 1, fontSize: '1.1rem' }} />
+                  Scroll to Bottom
+                </Fab>
+              )}
+              <MessageInput
+                onSendMessage={handleSend}
+                disabled={isLoading}
+                placeholder="Type your message..."
+                selectedModel={selectedModel}
+                onModelChange={setSelectedModel}
+              />
+            </div>
           </>
         )}
       </div>
-      <Snackbar open={!!errorText} autoHideDuration={6000} onClose={()=>setErrorText(null)} anchorOrigin={{vertical:'bottom',horizontal:'center'}}>
-        <Alert severity="error" sx={{bgcolor:'#4E342E',color:'#ef4444',border:'1px solid #ef4444'}}>{errorText}</Alert>
-      </Snackbar>
     </div>
   );
 } 

@@ -111,6 +111,11 @@ async def generate_chat_completion(chat_request: ChatRequest, user_api_key: str)
                         # Extract the meaningful part of the error
                         error_detail = error_data.get("error", {}).get("message", "An unknown error occurred.")
                         
+                        # Check for the raw metadata error, which is often more descriptive
+                        raw_error = error_data.get("error", {}).get("metadata", {}).get("raw")
+                        if raw_error:
+                          error_detail = raw_error
+
                         # Add provider-specific details if available
                         provider_error = error_data.get("error", {}).get("provider_error", {})
                         if provider_error:

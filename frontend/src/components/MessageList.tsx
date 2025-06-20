@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useState, useLayoutEffect, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { Message as MessageType, Model } from '@/types/chat';
 import ReactMarkdown from 'react-markdown';
 import { Box, Typography, CircularProgress, IconButton, Tooltip, Menu, MenuItem } from '@mui/material';
@@ -334,28 +334,112 @@ interface MessageListProps {
   onRegenerate?: (messageId: string, model?: string) => void;
   availableModels?: Model[];
   onFork?: (messageId: string) => void;
+  onScrollPositionChange?: (isAtBottom: boolean) => void;
 }
 
-const MessageList: React.FC<MessageListProps> = ({
+export interface MessageListRef {
+  scrollToBottom: () => void;
+  checkScrollPosition: () => void;
+}
+
+const MessageList = forwardRef<MessageListRef, MessageListProps>(({
   messages,
   loading,
   streamingMessageId,
   onRegenerate,
   onFork,
   availableModels = [],
-}) => {
+  onScrollPositionChange,
+}, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const prevMessagesLengthRef = useRef(0);
+  const [spacerHeight, setSpacerHeight] = useState(0);
+  const [scrollToMessageId, setScrollToMessageId] = useState<string | null>(null);
+  const prevStreamingMessageIdRef = useRef<string | undefined>(undefined);
 
-  useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+  useImperativeHandle(ref, () => ({
+    scrollToBottom: () => {
+      if (containerRef.current) {
+        containerRef.current.scrollTo({
+          top: containerRef.current.scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+    },
+    checkScrollPosition: () => {
+      if (onScrollPositionChange) {
+        const container = containerRef.current;
+        if (container) {
+          const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 300;
+          onScrollPositionChange(isAtBottom);
+        }
+      }
     }
+  }));
+
+  const handleScroll = () => {
+    if (onScrollPositionChange) {
+      const container = containerRef.current;
+      if (container) {
+        const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 300;
+        onScrollPositionChange(isAtBottom);
+      }
+    }
+  };
+
+  useLayoutEffect(() => {
+    const prevLength = prevMessagesLengthRef.current;
+    const container = containerRef.current;
+
+    if (container) {
+      const isInitialLoad = prevLength === 0 && messages.length > 0;
+
+      if (isInitialLoad) {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'instant' });
+      } else if (messages.length > prevLength) {
+        const addedMessages = messages.slice(prevLength);
+        const lastAddedUserMessage = addedMessages.filter(m => m.role === 'user').pop();
+
+        if (lastAddedUserMessage) {
+          setSpacerHeight(container.clientHeight / 2);
+          setScrollToMessageId(lastAddedUserMessage.id);
+        }
+      }
+    }
+
+    prevMessagesLengthRef.current = messages.length;
   }, [messages]);
 
+  useLayoutEffect(() => {
+    if (spacerHeight > 0 && scrollToMessageId) {
+      const container = containerRef.current;
+      const messageElement = container?.querySelector(`[data-message-id="${scrollToMessageId}"]`);
+      
+      if (messageElement) {
+        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Reset the message ID to prevent re-scrolling, but keep the spacer.
+        setScrollToMessageId(null);
+      }
+    }
+  }, [spacerHeight, scrollToMessageId]);
+
+  useEffect(() => {
+    const wasStreaming = !!prevStreamingMessageIdRef.current;
+    const isNowStreaming = !!streamingMessageId;
+
+    if (wasStreaming && !isNowStreaming) {
+      // Streaming has just finished
+      setSpacerHeight(0);
+    }
+
+    prevStreamingMessageIdRef.current = streamingMessageId;
+  }, [streamingMessageId]);
 
   return (
     <Box
       ref={containerRef}
+      onScroll={handleScroll}
       className="flex-1 overflow-y-auto p-4 space-y-4"
       style={{ 
         scrollbarWidth: 'thin', 
@@ -388,6 +472,7 @@ const MessageList: React.FC<MessageListProps> = ({
           onFork={onFork}
         />
       ))}
+      <div style={{ height: spacerHeight, flexShrink: 0 }} />
       {loading && !streamingMessageId && (
         <div className="flex justify-center">
           <CircularProgress size={24} sx={{ color: '#9ca3af' }} />
@@ -395,6 +480,6 @@ const MessageList: React.FC<MessageListProps> = ({
       )}
     </Box>
   );
-};
+});
 
 export default MessageList; 
