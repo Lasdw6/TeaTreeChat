@@ -632,24 +632,13 @@ export default function Chat() {
       // Wait for deletion to complete
       const deleteResponse = await deletePromise;
       if (!deleteResponse.ok) {
-        let errorData: any = {};
-        let errorText = '';
         try {
-          errorText = await deleteResponse.text();
-          errorData = JSON.parse(errorText);
-        } catch (e) {
-          errorData = { rawError: errorText };
+          const text = await deleteResponse.text();
+          console.warn('Non-blocking delete failure:', deleteResponse.status, deleteResponse.statusText, text);
+        } catch (_) {
+          console.warn('Non-blocking delete failure:', deleteResponse.status, deleteResponse.statusText);
         }
-        
-        console.error("Delete response error:", {
-          status: deleteResponse.status,
-          statusText: deleteResponse.statusText,
-          errorData,
-          rawErrorText: errorText
-        });
-        
-        const errorMsg = errorData.detail || errorData.message || deleteResponse.statusText || 'Unknown error';
-        throw new Error(`Failed to delete messages: ${errorMsg}`);
+        // Continue regeneration even if cleanup fails
       }
 
       const reader = aiResponse.body?.getReader();

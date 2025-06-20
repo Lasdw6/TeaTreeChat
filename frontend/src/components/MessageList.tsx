@@ -270,7 +270,7 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
                   href={href} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  style={{ color: '#4E342E' }}
+                  style={{ color: '#4E342E', textDecoration: 'underline' }}
                   {...props}
                 >
                   {children}
