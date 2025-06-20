@@ -178,14 +178,24 @@ export default function SettingsPage() {
         >
           Delete Account
         </Button>
-        <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
-          <DialogTitle>Delete Account</DialogTitle>
+        <Dialog 
+          open={dialogOpen} 
+          onClose={() => setDialogOpen(false)}
+          PaperProps={{
+            style: {
+              backgroundColor: '#D6BFA3',
+              color: '#4E342E',
+              borderRadius: '16px'
+            }
+          }}
+        >
+          <DialogTitle sx={{ fontWeight: 'bold' }}>Delete Account</DialogTitle>
           <DialogContent>
             <Typography>Are you sure you want to delete your account? This action cannot be undone.</Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDialogOpen(false)} disabled={deleting}>Cancel</Button>
-            <Button onClick={handleDelete} color="error" disabled={deleting}>
+            <Button onClick={() => setDialogOpen(false)} disabled={deleting} sx={{ color: '#4E342E' }}>Cancel</Button>
+            <Button onClick={handleDelete} color="error" disabled={deleting} sx={{ color: '#ef4444' }}>
               {deleting ? "Deleting..." : "Delete"}
             </Button>
           </DialogActions>
