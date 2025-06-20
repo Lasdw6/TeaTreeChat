@@ -871,8 +871,24 @@ export default function Chat() {
           {sidebarOpen ? (
             <ChevronLeftIcon />
           ) : (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center relative">
               <TeaTreeLogo size={24} />
+              {/* API Key indicator dot when sidebar is collapsed */}
+              <div 
+                style={{
+                  position: 'absolute',
+                  bottom: '-8px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: (user?.has_api_key || apiKey) ? '#5B6F56' : '#ef4444',
+                  border: '1px solid #D6BFA3',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                }}
+                title={(user?.has_api_key || apiKey) ? 'API Key Set' : 'No API Key'}
+              />
             </div>
           )}
         </button>
