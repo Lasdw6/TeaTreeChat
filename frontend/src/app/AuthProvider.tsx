@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AuthContextType, User } from '@/types/auth';
 import { loginUser, registerUser, getCurrentUser, updateApiKey } from '@/lib/api';
+import { chatCache } from '@/lib/chatCache';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -49,9 +50,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('User restored from token:', user);
           } catch (error) {
             console.log('Token invalid, clearing...', error);
-            // Token is invalid, clear it
+            // Token is invalid, clear it and cache
             localStorage.removeItem('token');
             setToken(null);
+            chatCache.clearAllCache();
           }
         }
       } catch (error) {
@@ -145,6 +147,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setApiKeyState(null);
     localStorage.removeItem('token');
     localStorage.removeItem('apiKey');
+    
+    // Clear all cached data on logout
+    chatCache.clearAllCache();
   };
 
   const refreshUser = async () => {
@@ -153,9 +158,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const user = await getCurrentUser(token);
       setUser(user);
     } catch {
+      // Token is invalid, clear everything including cache
       setUser(null);
       setToken(null);
       localStorage.removeItem('token');
+      chatCache.clearAllCache();
     }
   };
 
@@ -181,11 +188,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deleteAccount = async () => {
     if (!token) return;
     try {
-    await fetch(`${API_BASE_URL}/user/me`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    logout();
+      await fetch(`${API_BASE_URL}/user/me`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      // Clear all cached data before logout
+      chatCache.clearAllCache();
+      logout();
     } catch (e) {
       console.error('Failed to delete account', e);
     }

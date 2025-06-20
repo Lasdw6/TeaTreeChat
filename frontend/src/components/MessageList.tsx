@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { Box, Typography, CircularProgress, IconButton, Tooltip, Menu, MenuItem, Modal, Portal } from '@mui/material';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { ContentCopy as CopyIcon, Refresh as RefreshIcon, Check as CheckIcon, Attachment as AttachmentIcon, ChevronRight as ChevronRightIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
+import { ContentCopy as CopyIcon, Refresh as RefreshIcon, Check as CheckIcon, Attachment as AttachmentIcon, ChevronRight as ChevronRightIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, OpenInNew as OpenInNewIcon, Close as CloseIcon } from '@mui/icons-material';
 
 interface CodeBlockWithCopyProps {
   children: string;
@@ -84,6 +84,7 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
   const [regenerating, setRegenerating] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [modalContent, setModalContent] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const processedContent = message.content.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, language, code) => {
     return `\`\`\`${language || ''}\n${code.trim()}\n\`\`\``;
@@ -107,11 +108,8 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
 
   const handleCopy = async () => {
     try {
-      const fullContent = [
-        ...(message.attachments || []),
-        message.content
-      ].filter(Boolean).join('\n\n');
-      await navigator.clipboard.writeText(fullContent);
+      // Copy the entire message content (including embedded attachments)
+      await navigator.clipboard.writeText(message.content);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -134,6 +132,55 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
 
   const handleMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleOpenInNewTab = () => {
+    if (!modalContent) return;
+    
+    // Create a new window/tab with the content
+    const newWindow = window.open('', '_blank');
+    if (newWindow) {
+      newWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Pasted Content</title>
+            <style>
+              body {
+                font-family: monospace;
+                line-height: 1.6;
+                padding: 20px;
+                margin: 0;
+                background-color: #f5f5f5;
+                color: #333;
+              }
+              pre {
+                white-space: pre-wrap;
+                word-break: break-word;
+                background-color: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+              }
+            </style>
+          </head>
+          <body>
+            <h1>Pasted Content</h1>
+            <pre>${modalContent.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+          </body>
+        </html>
+      `);
+      newWindow.document.close();
+    }
+  };
+
+  const handleToggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
+  const handleCloseModal = () => {
+    setModalContent(null);
+    setIsFullscreen(false);
   };
 
   // Group models by provider
@@ -200,37 +247,7 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
           }
         >
             <div className="prose prose-invert prose-sm max-w-none markdown-content break-words">
-              {message.role === 'user' && message.attachments && message.attachments.length > 0 && (
-                <Box sx={{ mb: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {message.attachments.map((attachment, index) => (
-                    <Box
-                      key={index}
-                      onClick={() => setModalContent(attachment)}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        p: 1.5,
-                        borderRadius: '6px',
-                        background: '#4E342E',
-                        color: '#D6BFA3',
-                        cursor: 'pointer',
-                        transition: 'background 0.2s',
-                        '&:hover': {
-                          background: '#5a4e44'
-                        }
-                      }}
-                    >
-                      <AttachmentIcon sx={{ fontSize: 20 }} />
-                      <Typography variant="body2" sx={{ fontWeight: 500, color: 'inherit' }}>
-                        Pasted text #{index + 1} <span style={{ opacity: 0.7 }}>({attachment.length} chars)</span>
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              )}
-
-              {isStreaming && !message.content && (!message.attachments || message.attachments.length === 0) ? (
+              {isStreaming && !message.content ? (
               <div className="flex items-center space-x-2 text-gray-400">
                 <div className="flex space-x-1">
                   <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
@@ -262,8 +279,40 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
               ),
               code: ({ node, inline, className, children, ...props }) => {
                 const match = /language-(\w+)/.exec(className || '');
+                const language = match?.[1];
+                
+                // Handle attachment blocks specially
+                if (!inline && language === 'attachment') {
+                  const content = String(children).replace(/\n$/, '');
+                  return (
+                    <Box
+                      onClick={() => setModalContent(content)}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        p: 1.5,
+                        my: 1,
+                        borderRadius: '6px',
+                        background: '#4E342E',
+                        color: '#D6BFA3',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s',
+                        '&:hover': {
+                          background: '#5a4e44'
+                        }
+                      }}
+                    >
+                      <AttachmentIcon sx={{ fontSize: 20 }} />
+                      <Typography variant="body2" sx={{ fontWeight: 500, color: 'inherit' }}>
+                        Pasted text <span style={{ opacity: 0.7 }}>({content.length} chars)</span>
+                      </Typography>
+                    </Box>
+                  );
+                }
+                
                 return !inline ? (
-                  <CodeBlockWithCopy language={match?.[1]}>
+                  <CodeBlockWithCopy language={language}>
                     {String(children).replace(/\n$/, '')}
                   </CodeBlockWithCopy>
                 ) : (
@@ -547,36 +596,98 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
     </div>
       <Modal
         open={modalContent !== null}
-        onClose={() => setModalContent(null)}
+        onClose={handleCloseModal}
+        sx={{
+          '& .MuiBackdrop-root': {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          },
+        }}
       >
         <Box sx={{
           position: 'absolute',
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          width: '80%',
-          maxWidth: 800,
-          maxHeight: '80vh',
+          width: isFullscreen ? '95vw' : '80%',
+          height: isFullscreen ? '95vh' : 'auto',
+          maxWidth: isFullscreen ? 'none' : 800,
+          maxHeight: isFullscreen ? 'none' : '80vh',
           bgcolor: '#4E342E',
           color: '#D6BFA3',
           border: '2px solid #D6BFA3',
           boxShadow: 24,
-          p: 4,
           borderRadius: 2,
           display: 'flex',
           flexDirection: 'column',
+          outline: 'none',
         }}>
-          <Typography variant="h6" component="h2" sx={{ mb: 2 }}>
-            Pasted Content
-          </Typography>
+          {/* Header with title and action buttons */}
+          <Box sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            p: 2,
+            borderBottom: '1px solid #D6BFA3',
+          }}>
+            <Typography variant="h6" component="h2" sx={{ color: '#D6BFA3', fontWeight: 600 }}>
+              Pasted Content
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Tooltip title="Open in New Tab">
+                <IconButton
+                  onClick={handleOpenInNewTab}
+                  size="small"
+                  sx={{
+                    color: '#D6BFA3',
+                    '&:hover': {
+                      backgroundColor: 'rgba(214, 191, 163, 0.1)',
+                    },
+                  }}
+                >
+                  <OpenInNewIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+                <IconButton
+                  onClick={handleToggleFullscreen}
+                  size="small"
+                  sx={{
+                    color: '#D6BFA3',
+                    '&:hover': {
+                      backgroundColor: 'rgba(214, 191, 163, 0.1)',
+                    },
+                  }}
+                >
+                  {isFullscreen ? <FullscreenExitIcon fontSize="small" /> : <FullscreenIcon fontSize="small" />}
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Close">
+                <IconButton
+                  onClick={handleCloseModal}
+                  size="small"
+                  sx={{
+                    color: '#D6BFA3',
+                    '&:hover': {
+                      backgroundColor: 'rgba(214, 191, 163, 0.1)',
+                    },
+                  }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+          
+          {/* Content area */}
           <Box sx={{
             bgcolor: '#D6BFA3',
             color: '#111',
-            p: 2,
+            m: 2,
+            p: 3,
             borderRadius: 1,
             overflowY: 'auto',
             flex: 1,
-            minHeight: 0,
+            minHeight: isFullscreen ? '85vh' : '300px',
             scrollbarWidth: 'thin', 
             scrollbarColor: '#4E342E #D6BFA3',
             '&::-webkit-scrollbar': {
@@ -593,7 +704,17 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
               },
             },
           }}>
-            <Typography component="pre" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit' }}>
+            <Typography 
+              component="pre" 
+              sx={{ 
+                whiteSpace: 'pre-wrap', 
+                wordBreak: 'break-word', 
+                fontFamily: 'monospace',
+                fontSize: isFullscreen ? '0.9rem' : '0.875rem',
+                lineHeight: 1.5,
+                margin: 0,
+              }}
+            >
               {modalContent}
             </Typography>
           </Box>

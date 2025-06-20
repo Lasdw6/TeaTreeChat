@@ -246,7 +246,17 @@ export default function Chat() {
 
   const handleSend = async (messageData: { content: string, attachments: string[] }) => {
     const { content, attachments } = messageData;
-    const combinedContent = [...attachments, content].filter(Boolean).join('\n\n');
+    
+    // Embed attachments in content using markdown code blocks
+    let combinedContent = '';
+    if (attachments.length > 0) {
+      const attachmentBlocks = attachments.map((attachment) => 
+        `\`\`\`attachment\n${attachment}\n\`\`\``
+      ).join('\n\n');
+      combinedContent = attachmentBlocks + (content.trim() ? '\n\n' + content : '');
+    } else {
+      combinedContent = content;
+    }
 
     if (!combinedContent.trim() || !selectedChatId) return;
 
@@ -256,8 +266,8 @@ export default function Chat() {
       const userMessage: Message = {
         id: getUniqueId(),
         role: 'user',
-        content: content,
-        attachments: attachments,
+        content: combinedContent,
+        attachments: [],
         created_at: new Date().toISOString(),
         chat_id: selectedChatId,
         model: selectedModel
@@ -277,12 +287,12 @@ export default function Chat() {
     setIsLoading(true);
 
     try {
-      // Add user message
+      // Add user message (store in the new embedded format for UI)
       const userMessage: Message = {
         id: getUniqueId(),
         role: "user",
-        content: content,
-        attachments: attachments,
+        content: combinedContent, // This now includes embedded attachments
+        attachments: [], // Clear attachments since they're now embedded
         created_at: new Date().toISOString(),
         chat_id: selectedChatId,
         model: selectedModel

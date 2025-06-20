@@ -64,8 +64,13 @@ class ChatCacheManager {
   }
 
   public updateChats(chats: Chat[]): void {
-    // Sort by most recent and take top 5
-    const sortedChats = [...chats]
+    // Deduplicate chats by ID first
+    const uniqueChats = chats.filter((chat, index, array) => 
+      array.findIndex(c => c.id === chat.id) === index
+    );
+    
+    // Sort by most recent and take top cached chats
+    const sortedChats = [...uniqueChats]
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, MAX_CACHED_CHATS);
 
@@ -109,15 +114,28 @@ class ChatCacheManager {
   }
 
   public addNewChat(chat: Chat): void {
-    // Add new chat to the beginning
-    const cachedChat: CachedChat = {
-      ...chat,
-      lastAccessed: Date.now()
-    };
-
-    this.cache.chats.unshift(cachedChat);
+    // Check if chat already exists
+    const existingIndex = this.cache.chats.findIndex(c => c.id === chat.id);
+    if (existingIndex !== -1) {
+      // Update existing chat and move to front
+      this.cache.chats[existingIndex] = {
+        ...chat,
+        lastAccessed: Date.now(),
+        messages: this.cache.chats[existingIndex].messages // Preserve messages
+      };
+      // Move to front
+      const updatedChat = this.cache.chats.splice(existingIndex, 1)[0];
+      this.cache.chats.unshift(updatedChat);
+    } else {
+      // Add new chat to the beginning
+      const cachedChat: CachedChat = {
+        ...chat,
+        lastAccessed: Date.now()
+      };
+      this.cache.chats.unshift(cachedChat);
+    }
     
-    // Keep only top 5
+    // Keep only top cached chats
     if (this.cache.chats.length > MAX_CACHED_CHATS) {
       this.cache.chats = this.cache.chats.slice(0, MAX_CACHED_CHATS);
     }
@@ -257,6 +275,13 @@ class ChatCacheManager {
       count: this.modelsCache.models.length,
       lastUpdated: this.modelsCache.lastUpdated ? new Date(this.modelsCache.lastUpdated) : null
     };
+  }
+
+  // Clear all cache data - useful for logout and account deletion
+  public clearAllCache(): void {
+    this.clearCache();
+    this.clearModelsCache();
+    console.log('All cache cleared');
   }
 }
 

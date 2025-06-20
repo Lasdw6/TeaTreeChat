@@ -45,6 +45,18 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   const { user, token, refreshUser, apiKey } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [error, setError] = useState<string | null>(null);
+  
+  // Debug: Log when chats state changes to detect duplicates
+  useEffect(() => {
+    const duplicateIds = chats
+      .map(chat => chat.id)
+      .filter((id, index, array) => array.indexOf(id) !== index);
+    
+    if (duplicateIds.length > 0) {
+      console.warn('Duplicate chat IDs detected:', duplicateIds);
+      console.warn('Full chats array:', chats);
+    }
+  }, [chats]);
   const [isLoading, setIsLoading] = useState(false);
   const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false);
   const [newChatTitle, setNewChatTitle] = useState('');
@@ -79,6 +91,19 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
     }
   }, [shouldRefresh, onRefresh]);
 
+  // Helper function to deduplicate chats by ID
+  const deduplicateChats = (chats: Chat[]): Chat[] => {
+    const seen = new Set<number>();
+    return chats.filter(chat => {
+      if (seen.has(chat.id)) {
+        console.warn(`Duplicate chat found with ID: ${chat.id}`);
+        return false;
+      }
+      seen.add(chat.id);
+      return true;
+    });
+  };
+
   const fetchChats = async () => {
     if (!user || !token) return;
     
@@ -86,7 +111,8 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
     const cachedChats = chatCache.getCachedChats();
     if (cachedChats.length > 0) {
       console.log('Loading chats from cache');
-      setChats(cachedChats);
+      const deduplicatedCachedChats = deduplicateChats(cachedChats);
+      setChats(deduplicatedCachedChats);
       if (error) setError(null);
     }
     
@@ -104,13 +130,16 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       });
       if (!response.ok) throw new Error('Failed to fetch chats');
       const data = await response.json();
-      data.sort((a: Chat, b: Chat) => {
+      
+      // Deduplicate and sort the data
+      const deduplicatedData = deduplicateChats(data);
+      deduplicatedData.sort((a: Chat, b: Chat) => {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
       
       // Update cache with fresh data
-      chatCache.updateChats(data);
-      setChats(data);
+      chatCache.updateChats(deduplicatedData);
+      setChats(deduplicatedData);
       if (error) setError(null);
     } catch (err) {
       setError('Failed to load chats. Please try again later.');
@@ -142,7 +171,15 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       });
       if (!response.ok) throw new Error('Failed to create chat');
       const newChat = await response.json();
-      setChats(prev => [newChat, ...prev]);
+      setChats(prev => {
+        // Check if chat already exists to prevent duplicates
+        const exists = prev.some(chat => chat.id === newChat.id);
+        if (exists) {
+          console.warn(`Chat with ID ${newChat.id} already exists, not adding duplicate`);
+          return prev;
+        }
+        return [newChat, ...prev];
+      });
       chatCache.addNewChat(newChat); // Update cache
       setIsNewChatDialogOpen(false);
       setNewChatTitle('');
@@ -305,9 +342,9 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress size={24} sx={{ color: '#D6BFA3' }} />
           </Box>
-        ) : chats.map((chat) => (
+        ) : chats.map((chat, index) => (
           <ListItem
-            key={chat.id}
+            key={`${chat.id}-${index}`}
             disablePadding
             sx={{
               mb: 0.5,
