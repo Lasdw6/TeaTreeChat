@@ -189,7 +189,7 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
               ? 'self-end mr-40'
               : message.role === 'system'
               ? 'self-center'
-              : 'self-start ml-14 mr-32'
+              : 'self-start ml-14 mr-40'
           }`}
           style={
             message.role === 'user'
