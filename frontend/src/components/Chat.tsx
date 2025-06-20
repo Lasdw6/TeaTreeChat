@@ -854,7 +854,7 @@ export default function Chat() {
   return (
     <div className="flex h-screen" style={{ background: 'transparent' }}>
       {/* Collapsible Sidebar */}
-      <div className={`transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col`} style={{ background: '#4E342E', paddingRight: '4px', paddingTop: '4px' }}>
+      <div className={`transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col relative`} style={{ background: '#4E342E', paddingRight: '4px', paddingTop: '4px' }}>
         <button
           className="p-2 w-full text-left focus:outline-none hover:text-white cursor-pointer flex items-center justify-center"
           style={{ 
@@ -871,24 +871,8 @@ export default function Chat() {
           {sidebarOpen ? (
             <ChevronLeftIcon />
           ) : (
-            <div className="flex flex-col items-center relative">
+            <div className="flex flex-col items-center">
               <TeaTreeLogo size={24} />
-              {/* API Key indicator dot when sidebar is collapsed */}
-              <div 
-                style={{
-                  position: 'absolute',
-                  bottom: '-8px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: (user?.has_api_key || apiKey) ? '#5B6F56' : '#ef4444',
-                  border: '1px solid #D6BFA3',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                }}
-                title={(user?.has_api_key || apiKey) ? 'API Key Set' : 'No API Key'}
-              />
             </div>
           )}
         </button>
@@ -899,6 +883,32 @@ export default function Chat() {
         shouldRefresh={shouldRefreshChats}
         onRefresh={onChatListRefresh}
       />
+        )}
+        {/* API Key indicator dot at bottom of collapsed sidebar */}
+        {!sidebarOpen && (
+          <div 
+            style={{
+              position: 'absolute',
+              bottom: '8px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              backgroundColor: '#D6BFA3',
+              padding: '6px',
+              borderRadius: '6px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+            title={(user?.has_api_key || apiKey) ? 'API Key Set' : 'No API Key'}
+          >
+            <div 
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: (user?.has_api_key || apiKey) ? '#5B6F56' : '#ef4444',
+                border: '1px solid #4E342E',
+              }}
+            />
+          </div>
         )}
       </div>
       <div className="flex-1 flex flex-col" style={{ background: 'transparent' }}>
