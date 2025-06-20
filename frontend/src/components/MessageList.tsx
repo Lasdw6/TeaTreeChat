@@ -5,6 +5,7 @@ import { Box, Typography, CircularProgress, IconButton, Tooltip, Menu, MenuItem,
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { ContentCopy as CopyIcon, Refresh as RefreshIcon, Check as CheckIcon, Attachment as AttachmentIcon, ChevronRight as ChevronRightIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, OpenInNew as OpenInNewIcon, Close as CloseIcon } from '@mui/icons-material';
+import { getProviderLogo } from './ProviderLogos';
 
 interface CodeBlockWithCopyProps {
   children: string;
@@ -222,8 +223,6 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
       setExpandedProvider(provider);
     }
   };
-
-
 
   return (
     <>
@@ -481,6 +480,8 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
                     </Box>
                   </MenuItem>
                   {providerOrder.map((provider, index) => {
+                    const LogoComponent = getProviderLogo(provider);
+                    const isBlackLogo = provider.toLowerCase().includes('openai') || provider.toLowerCase().includes('anthropic');
                     return (
                     <Box key={provider} sx={{ position: 'relative' }}>
                       <MenuItem 
@@ -491,12 +492,25 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
                           backgroundColor: '#D6BFA3 !important',
                           borderBottom: index < providerOrder.length - 1 ? '1px solid #4E342E' : 'none',
                           zIndex: expandedProvider === provider ? 1000 : 1,
-
                         }}
                       >
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                          <Typography variant="body2" sx={{ fontWeight: 500, color: '#4E342E' }}>{provider}</Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box 
+                              sx={{ 
+                                bgcolor: '#4E342E', 
+                                p: 0.5, 
+                                borderRadius: 1, 
+                                display: 'flex', 
+                                alignItems: 'center',
+                                '& img': isBlackLogo ? { filter: 'brightness(0) saturate(100%)' } : {},
+                              }}
+                            >
+                              <LogoComponent size={18} />
+                            </Box>
+                            <Typography variant="body2" sx={{ fontWeight: 500, color: '#4E342E' }}>{provider}</Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography variant="caption" sx={{ color: '#5a4e44' }}>
                               ({groupedModels[provider].length})
                             </Typography>
@@ -505,8 +519,8 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
                               <span style={{ fontSize: '16px', color: '#4E342E' }}>▼</span>
                             }
                           </Box>
-                  </Box>
-                </MenuItem>
+                        </Box>
+                      </MenuItem>
                       {expandedProvider === provider && menuItemRefs.current[provider] && (
                         <Portal>
                           <Box

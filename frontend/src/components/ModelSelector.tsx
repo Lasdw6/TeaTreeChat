@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Model } from '@/types/chat';
 import { getModels } from '@/lib/api';
 import { DEFAULT_MODEL } from '@/lib/constants';
+import { getProviderLogo } from './ProviderLogos';
 
 interface ModelSelectorProps {
   selectedModel: string;
@@ -372,10 +373,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                     {/* Provider Header */}
                     <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-[#D6BFA3]/10 to-[#5B6F56]/10 rounded-lg mb-3 border border-[#5B6F56]/20">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-[#5B6F56] to-[#D6BFA3] rounded-lg flex items-center justify-center shadow-md">
-                          <span className="text-white text-sm font-bold">
-                            {provider.split('(')[0].trim().charAt(0)}
-                          </span>
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center shadow-md p-1.5" style={{ backgroundColor: '#4E342E' }}>
+                          {(() => {
+                            const LogoComponent = getProviderLogo(provider);
+                            return <LogoComponent size={24} />;
+                          })()}
                         </div>
                         <div>
                           <h4 className="text-base font-semibold text-[#D6BFA3]">{provider}</h4>
@@ -453,10 +455,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                     <div className="px-3 py-2 bg-gradient-to-r from-[#D6BFA3]/5 to-[#5B6F56]/5 border-b border-[#5B6F56]/10">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
-                          <div className="w-5 h-5 bg-gradient-to-br from-[#5B6F56] to-[#D6BFA3] rounded flex items-center justify-center">
-                            <span className="text-white text-xs font-bold">
-                              {provider.split('(')[0].trim().charAt(0)}
-                            </span>
+                          <div className="w-5 h-5 bg-white/10 rounded flex items-center justify-center p-0.5">
+                            {(() => {
+                              const LogoComponent = getProviderLogo(provider);
+                              return <LogoComponent size={14} className="text-[#D6BFA3]" />;
+                            })()}
                           </div>
                           <h4 className="text-sm font-semibold text-[#D6BFA3]">{provider}</h4>
                           <span className="text-xs text-[#5B6F56]/60">({groupedModels[provider].length})</span>
