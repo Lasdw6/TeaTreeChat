@@ -20,6 +20,7 @@ interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  attachments?: string[];
   created_at: string;
   chat_id: number;
   model?: string;
@@ -243,8 +244,11 @@ export default function Chat() {
     }
   };
 
-  const handleSend = async (message: string) => {
-    if (!message.trim() || !selectedChatId) return;
+  const handleSend = async (messageData: { content: string, attachments: string[] }) => {
+    const { content, attachments } = messageData;
+    const combinedContent = [...attachments, content].filter(Boolean).join('\n\n');
+
+    if (!combinedContent.trim() || !selectedChatId) return;
 
     // Check if user has API key set in their account
     if (!user?.has_api_key) {
@@ -252,7 +256,8 @@ export default function Chat() {
       const userMessage: Message = {
         id: getUniqueId(),
         role: 'user',
-        content: message,
+        content: content,
+        attachments: attachments,
         created_at: new Date().toISOString(),
         chat_id: selectedChatId,
         model: selectedModel
@@ -276,7 +281,8 @@ export default function Chat() {
       const userMessage: Message = {
         id: getUniqueId(),
         role: "user",
-        content: message,
+        content: content,
+        attachments: attachments,
         created_at: new Date().toISOString(),
         chat_id: selectedChatId,
         model: selectedModel
@@ -293,7 +299,7 @@ export default function Chat() {
           },
           body: JSON.stringify({
             role: "user",
-            content: message,
+            content: combinedContent,
             model: selectedModel
           }),
         }
@@ -341,7 +347,7 @@ export default function Chat() {
         },
         body: JSON.stringify({
           model: selectedModel,
-          messages: [...messages, userMessage].map(msg => ({
+          messages: [...messages, { ...userMessage, content: combinedContent }].map(msg => ({
             role: msg.role,
             content: msg.content
           })),
@@ -973,42 +979,42 @@ export default function Chat() {
               availableModels={availableModels}
               onScrollPositionChange={setIsAtBottom}
             />
-            <div style={{ position: 'relative' }}>
-              {!isAtBottom && !streamingMessageId && (
-                <Fab
-                  variant="extended"
-                  onClick={() => messageListRef.current?.scrollToBottom()}
-                  sx={{
-                    position: 'absolute',
-                    bottom: '90px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    zIndex: 1000,
-                    backgroundColor: '#4E342E',
-                    color: '#D6BFA3',
-                    borderRadius: '16px',
-                    height: '32px',
-                    padding: '0 12px',
-                    fontSize: '0.8rem',
-                    opacity: 0.6,
-                    '&:hover': {
-                      backgroundColor: '#6D4C41',
-                      opacity: 1,
-                    },
-                  }}
-                >
-                  <ArrowDownwardIcon sx={{ mr: 1, fontSize: '1.1rem' }} />
-                  Scroll to Bottom
-                </Fab>
-              )}
+            <Box sx={{ position: 'relative' }}>
               <MessageInput
                 onSendMessage={handleSend}
-                disabled={isLoading}
-                placeholder="Type your message..."
+                disabled={streamingMessageId !== undefined}
                 selectedModel={selectedModel}
                 onModelChange={setSelectedModel}
               />
-            </div>
+              <Fab
+                variant="extended"
+                size="medium"
+                aria-label="scroll to bottom"
+                onClick={() => messageListRef.current?.scrollToBottom()}
+                sx={{
+                  position: 'absolute',
+                  bottom: 'calc(100% + 16px)',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  backgroundColor: '#4E342E',
+                  color: '#D6BFA3',
+                  borderRadius: '16px',
+                  height: '32px',
+                  padding: '0 12px',
+                  fontSize: '0.8rem',
+                  transition: 'opacity 0.3s ease-in-out, visibility 0.3s ease-in-out',
+                  opacity: (!isAtBottom && !streamingMessageId) ? 0.6 : 0,
+                  visibility: (!isAtBottom && !streamingMessageId) ? 'visible' : 'hidden',
+                  '&:hover': {
+                    backgroundColor: '#5a4e44',
+                    opacity: 1,
+                  },
+                }}
+              >
+                <ArrowDownwardIcon sx={{ mr: 1, fontSize: '1.1rem' }} />
+                Scroll to Bottom
+              </Fab>
+            </Box>
           </>
         )}
       </div>

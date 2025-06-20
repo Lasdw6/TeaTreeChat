@@ -34,6 +34,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   const [maxDropdownHeight, setMaxDropdownHeight] = useState<number>(600);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const selectedModelRef = useRef<HTMLButtonElement>(null);
   
   // Mark when component is mounted on client
   useEffect(() => {
@@ -86,6 +87,15 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    if (isOpen && selectedModelRef.current) {
+      selectedModelRef.current.scrollIntoView({
+        behavior: 'auto',
+        block: 'center',
+      });
+    }
+  }, [isOpen, isDetailedView]);
 
   // Group models by provider
   const groupedModels: GroupedModels = models.reduce((groups, model) => {
@@ -297,7 +307,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         type="button"
         onClick={handleToggleDropdown}
         disabled={disabled || showLoading}
-        className="w-full h-12 px-4 py-2 bg-[#4E342E]/80 border border-[#D6BFA3]/30 rounded-xl text-[#D6BFA3] focus:outline-none focus:ring-2 focus:ring-[#5B6F56] focus:border-[#5B6F56] transition-all backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between hover:bg-[#4E342E] hover:border-[#5B6F56]/50 hover:shadow-lg hover:shadow-[#5B6F56]/10"
+        className="w-40 h-12 px-4 py-2 bg-[#4E342E]/80 border border-[#D6BFA3]/30 rounded-xl text-[#D6BFA3] focus:outline-none focus:ring-2 focus:ring-[#5B6F56] focus:border-[#5B6F56] transition-all backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between hover:bg-[#4E342E] hover:border-[#5B6F56]/50 hover:shadow-lg hover:shadow-[#5B6F56]/10"
       >
         <div className="flex items-center space-x-2 flex-1 min-w-0">
         {showLoading ? (
@@ -386,6 +396,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                       {groupedModels[provider].map((model) => (
                         <button
                           key={model.id}
+                          ref={selectedModel === model.id ? selectedModelRef : null}
                           onClick={() => handleModelSelect(model.id)}
                           className={`w-full px-4 py-4 text-left rounded-xl transition-all duration-200 border ${
                             selectedModel === model.id 
@@ -463,6 +474,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                       {groupedModels[provider].map((model) => (
                         <button
                           key={model.id}
+                          ref={selectedModel === model.id ? selectedModelRef : null}
                           onClick={() => handleModelSelect(model.id)}
                           className={`w-full px-3 py-2 text-left transition-all duration-200 flex items-center justify-between ${
                             selectedModel === model.id 

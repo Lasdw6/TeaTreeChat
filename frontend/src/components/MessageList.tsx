@@ -1,10 +1,10 @@
 import React, { useRef, useState, useLayoutEffect, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { Message as MessageType, Model } from '@/types/chat';
 import ReactMarkdown from 'react-markdown';
-import { Box, Typography, CircularProgress, IconButton, Tooltip, Menu, MenuItem } from '@mui/material';
+import { Box, Typography, CircularProgress, IconButton, Tooltip, Menu, MenuItem, Modal, Portal } from '@mui/material';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { ContentCopy as CopyIcon, Refresh as RefreshIcon, Check as CheckIcon } from '@mui/icons-material';
+import { ContentCopy as CopyIcon, Refresh as RefreshIcon, Check as CheckIcon, Attachment as AttachmentIcon, ChevronRight as ChevronRightIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 
 interface CodeBlockWithCopyProps {
   children: string;
@@ -83,13 +83,35 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [modalContent, setModalContent] = useState<string | null>(null);
+
   const processedContent = message.content.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, language, code) => {
     return `\`\`\`${language || ''}\n${code.trim()}\n\`\`\``;
   });
 
+  const getCleanModelName = (modelName: string): string => {
+    const lastDashIndex = modelName.lastIndexOf(' - ');
+    if (lastDashIndex === -1) return modelName.trim();
+    return modelName.substring(0, lastDashIndex).trim();
+  };
+
+  const getCleanDescription = (description: string): string => {
+    // Remove model name and "with" from the beginning of descriptions
+    // Pattern: "ModelName with context window and cost info"
+    const withIndex = description.indexOf(' with ');
+    if (withIndex !== -1) {
+      return description.substring(withIndex + 6).trim(); // +6 to skip " with "
+    }
+    return description.trim();
+  };
+
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(message.content);
+      const fullContent = [
+        ...(message.attachments || []),
+        message.content
+      ].filter(Boolean).join('\n\n');
+      await navigator.clipboard.writeText(fullContent);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -114,7 +136,50 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
     setAnchorEl(null);
   };
 
+  // Group models by provider
+  const groupedModels = availableModels.reduce((groups, model) => {
+    let provider = 'Others';
+    
+    if (model.id.includes('openai')) {
+      provider = 'OpenAI';
+    } else if (model.id.includes('anthropic')) {
+      provider = 'Anthropic';
+    } else if (model.id.includes('google')) {
+      provider = 'Google';
+    } else if (model.id.includes('meta')) {
+      provider = 'Meta';
+    } else if (model.id.includes('deepseek')) {
+      provider = 'DeepSeek';
+    } else if (model.id.includes('mistralai')) {
+      provider = 'Mistral';
+    }
+    
+    if (!groups[provider]) {
+      groups[provider] = [];
+    }
+    groups[provider].push(model);
+    return groups;
+  }, {} as Record<string, Model[]>);
+
+  const providerOrder = ['OpenAI', 'Anthropic', 'Google', 'Meta', 'DeepSeek', 'Mistral', 'Others'].filter(provider => groupedModels[provider]?.length > 0);
+
+  const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
+  
+  // Create a single ref to store all menu item elements
+  const menuItemRefs = useRef<Record<string, HTMLLIElement | null>>({});
+
+  const toggleProvider = (provider: string) => {
+    if (expandedProvider === provider) {
+      setExpandedProvider(null);
+    } else {
+      setExpandedProvider(provider);
+    }
+  };
+
+
+
   return (
+    <>
     <div className={`flex justify-center mb-4`}>
       <div className={`flex flex-col w-[70%]`}>
         <div
@@ -134,8 +199,38 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
               : { color: '#D6BFA3' }
           }
         >
-          <div className="prose prose-invert prose-sm max-w-none markdown-content">
-            {isStreaming && !message.content ? (
+            <div className="prose prose-invert prose-sm max-w-none markdown-content break-words">
+              {message.role === 'user' && message.attachments && message.attachments.length > 0 && (
+                <Box sx={{ mb: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {message.attachments.map((attachment, index) => (
+                    <Box
+                      key={index}
+                      onClick={() => setModalContent(attachment)}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        p: 1.5,
+                        borderRadius: '6px',
+                        background: '#4E342E',
+                        color: '#D6BFA3',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s',
+                        '&:hover': {
+                          background: '#5a4e44'
+                        }
+                      }}
+                    >
+                      <AttachmentIcon sx={{ fontSize: 20 }} />
+                      <Typography variant="body2" sx={{ fontWeight: 500, color: 'inherit' }}>
+                        Pasted text #{index + 1} <span style={{ opacity: 0.7 }}>({attachment.length} chars)</span>
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+
+              {isStreaming && !message.content && (!message.attachments || message.attachments.length === 0) ? (
               <div className="flex items-center space-x-2 text-gray-400">
                 <div className="flex space-x-1">
                   <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
@@ -267,65 +362,248 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
                 onClose={handleMenuClose}
-                anchorOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
-                transformOrigin={{
-                  vertical: 'bottom',
-                  horizontal: 'right',
+                  anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                  transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                  BackdropProps={{
+                    invisible: true,
                 }}
                 PaperProps={{
                   elevation: 3,
                   sx: {
-                    bgcolor: '#4E342E',
-                    color: '#fff',
+                      bgcolor: '#D6BFA3 !important',
+                      backgroundColor: '#D6BFA3 !important',
+                      color: '#4E342E',
                     mt: 1,
-                    minWidth: '200px',
-                    border: '1px solid #D6BFA3',
+                      width: '320px',
+                      border: '4px solid #4E342E',
+                      maxHeight: '60vh',
+                      overflowY: 'auto',
+                      overflow: 'visible',
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: '#4E342E #D6BFA3',
+                      '&::-webkit-scrollbar': {
+                        width: '8px',
+                      },
+                      '&::-webkit-scrollbar-track': {
+                        background: '#D6BFA3',
+                      },
+                      '&::-webkit-scrollbar-thumb': {
+                        background: '#4E342E',
+                        borderRadius: '4px',
+                        '&:hover': {
+                          background: '#5a4e44',
+                        },
+                      },
                     '& .MuiMenuItem-root': {
                       fontSize: '0.875rem',
-                      py: 1.5,
+                        py: 1.25,
                       px: 2,
-                      color: '#fff',
-                      '&:hover': {
-                        bgcolor: '#D6BFA3',
-                        color: '#111',
+                        color: '#4E342E',
+                      
                       },
-                      '&:first-of-type': {
-                        borderBottom: '1px solid #D6BFA3',
-                        mb: 0.5,
+                      '& .MuiList-root': {
+                        backgroundColor: '#D6BFA3 !important',
                       },
+                      '& .MuiMenuList-root': {
+                        backgroundColor: '#D6BFA3 !important',
+                      },
+                      '& .MuiBox-root': {
+                        backgroundColor: '#D6BFA3 !important',
+                      },
+                    },
+                  }}
+                  MenuListProps={{
+                    sx: {
+                      overflow: 'visible',
+                      backgroundColor: '#D6BFA3 !important',
+                      '& .MuiMenuItem-root': {
+                        backgroundColor: 'transparent !important',
+                      },
+                      '& .MuiBox-root': {
+                        backgroundColor: '#D6BFA3 !important',
                     },
                   },
                 }}
               >
-                <MenuItem onClick={() => handleRegenerate()}>
+                  <MenuItem onClick={() => handleRegenerate()} sx={{ borderBottom: '1px solid #4E342E', mb: 0.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <RefreshIcon fontSize="small" />
+                      <Typography variant="body2" sx={{ color: 'inherit' }}>Use current model</Typography>
+                    </Box>
+                  </MenuItem>
+                  {providerOrder.map((provider, index) => {
+                    return (
+                    <Box key={provider} sx={{ position: 'relative' }}>
+                      <MenuItem 
+                        ref={(el) => { menuItemRefs.current[provider] = el; }}
+                        onClick={() => toggleProvider(provider)}
+                        sx={{ 
+                          bgcolor: '#D6BFA3 !important',
+                          backgroundColor: '#D6BFA3 !important',
+                          borderBottom: index < providerOrder.length - 1 ? '1px solid #4E342E' : 'none',
+                          zIndex: expandedProvider === provider ? 1000 : 1,
+
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 500, color: '#4E342E' }}>{provider}</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <RefreshIcon fontSize="small" sx={{ color: '#ffffff' }} />
-                    <Typography variant="body2" sx={{ color: '#ffffff' }}>Use current model</Typography>
+                            <Typography variant="caption" sx={{ color: '#5a4e44' }}>
+                              ({groupedModels[provider].length})
+                            </Typography>
+                            {expandedProvider === provider ? 
+                              <span style={{ fontSize: '16px', color: '#4E342E' }}>▲</span> : 
+                              <span style={{ fontSize: '16px', color: '#4E342E' }}>▼</span>
+                            }
+                          </Box>
                   </Box>
                 </MenuItem>
-                {availableModels.map((model) => (
-                  <MenuItem key={model.id} onClick={() => handleRegenerate(model.id)}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 500, color: '#ffffff' }}>
-                        {model.name}
+                      {expandedProvider === provider && menuItemRefs.current[provider] && (
+                        <Portal>
+                          <Box
+                            sx={{
+                              position: 'fixed',
+                              top: menuItemRefs.current[provider]?.getBoundingClientRect().top,
+                              left: menuItemRefs.current[provider]?.getBoundingClientRect().right,
+                              width: '320px',
+                              bgcolor: '#4E342E',
+                              border: '1px solid #D6BFA3',
+                              zIndex: 9999,
+                              maxHeight: '400px',
+                              overflowY: 'auto',
+                              scrollbarWidth: 'thin',
+                              scrollbarColor: '#D6BFA3 #4E342E',
+                              boxShadow: '4px 0 8px rgba(0, 0, 0, 0.3)',
+                              '&::-webkit-scrollbar': {
+                                width: '6px',
+                              },
+                              '&::-webkit-scrollbar-track': {
+                                background: '#4E342E',
+                              },
+                              '&::-webkit-scrollbar-thumb': {
+                                background: '#D6BFA3',
+                                borderRadius: '3px',
+                                '&:hover': {
+                                  background: '#C5A882',
+                                },
+                              },
+                            }}
+                          >
+                            {groupedModels[provider].map((model) => (
+                              <MenuItem 
+                                key={model.id} 
+                                onClick={() => handleRegenerate(model.id)}
+                                sx={{ 
+                                  pl: 4,
+                                  bgcolor: 'rgba(0, 0, 0, 0.2)',
+                                  '&:hover': { 
+                                    bgcolor: '#D6BFA3', 
+                                    '& .MuiTypography-root': { color: '#111 !important' }
+                                  }
+                                }}
+                              >
+                                <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0 }}>
+                                  <Typography 
+                                    variant="body2" 
+                                    sx={{ 
+                                      fontWeight: 500, 
+                                      color: '#D6BFA3',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                  >
+                                    {getCleanModelName(model.name)}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: '#9ca3af', mt: 0.5 }}>
-                        {model.description}
+                                  <Typography 
+                                    variant="caption" 
+                                    sx={{ 
+                                      color: '#B8A082', 
+                                      mt: 0.5, 
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      display: '-webkit-box',
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: 'vertical',
+                                      lineHeight: 1.2
+                                    }}
+                                  >
+                                    {getCleanDescription(model.description)}
                       </Typography>
                     </Box>
                   </MenuItem>
                 ))}
+                          </Box>
+                        </Portal>
+                      )}
+                    </Box>
+                    );
+                  })}
               </Menu>
             </div>
           )}
         </div>
       </div>
     </div>
+      <Modal
+        open={modalContent !== null}
+        onClose={() => setModalContent(null)}
+      >
+        <Box sx={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '80%',
+          maxWidth: 800,
+          maxHeight: '80vh',
+          bgcolor: '#4E342E',
+          color: '#D6BFA3',
+          border: '2px solid #D6BFA3',
+          boxShadow: 24,
+          p: 4,
+          borderRadius: 2,
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
+          <Typography variant="h6" component="h2" sx={{ mb: 2 }}>
+            Pasted Content
+          </Typography>
+          <Box sx={{
+            bgcolor: '#D6BFA3',
+            color: '#111',
+            p: 2,
+            borderRadius: 1,
+            overflowY: 'auto',
+            flex: 1,
+            minHeight: 0,
+            scrollbarWidth: 'thin', 
+            scrollbarColor: '#4E342E #D6BFA3',
+            '&::-webkit-scrollbar': {
+              width: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: '#D6BFA3',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: '#4E342E',
+              borderRadius: '4px',
+              '&:hover': {
+                background: '#5a4e44',
+              },
+            },
+          }}>
+            <Typography component="pre" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit' }}>
+              {modalContent}
+            </Typography>
+          </Box>
+        </Box>
+      </Modal>
+    </>
   );
 };
+
+
 
 interface MessageListProps {
   messages: MessageType[];
@@ -359,7 +637,7 @@ const MessageList = forwardRef<MessageListRef, MessageListProps>(({
 
   useImperativeHandle(ref, () => ({
     scrollToBottom: () => {
-      if (containerRef.current) {
+    if (containerRef.current) {
         containerRef.current.scrollTo({
           top: containerRef.current.scrollHeight,
           behavior: 'smooth',

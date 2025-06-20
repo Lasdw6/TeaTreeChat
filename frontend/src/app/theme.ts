@@ -22,6 +22,44 @@ const theme = createTheme({
         },
       },
     },
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#D6BFA3 #4E342E',
+          '&::-webkit-scrollbar': {
+            width: '8px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: '#4E342E',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: '#D6BFA3',
+            borderRadius: '4px',
+            '&:hover': {
+              background: '#C5A882',
+            },
+          },
+          '& *': {
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#D6BFA3 #4E342E',
+          },
+          '& *::-webkit-scrollbar': {
+            width: '8px',
+          },
+          '& *::-webkit-scrollbar-track': {
+            background: '#4E342E',
+          },
+          '& *::-webkit-scrollbar-thumb': {
+            background: '#D6BFA3',
+            borderRadius: '4px',
+            '&:hover': {
+              background: '#C5A882',
+            },
+          },
+        },
+      },
+    },
   },
 });
 

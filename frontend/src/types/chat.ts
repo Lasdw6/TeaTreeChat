@@ -4,6 +4,7 @@ export interface Message {
   id: string;
   role: Role;
   content: string;
+  attachments?: string[];
   createdAt?: Date;
   regeneration_id?: string;
   model?: string;
