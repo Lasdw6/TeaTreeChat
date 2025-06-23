@@ -15,6 +15,8 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   const [isClient, setIsClient] = useState(false);
   const theme = useTheme();
   const router = useRouter();
@@ -39,13 +41,19 @@ export default function SettingsPage() {
     try {
       await setApiKey(keyInput.trim());
       await refreshUser();
+      setSnackbarSeverity('success');
+      setSnackbarMessage('API key saved successfully!');
       setSnackbarOpen(true);
       // Reset to placeholder if user has a key
       if (user?.has_api_key) {
         setKeyInput("••••••••••••••••••••••••••••••••");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving API key:', error);
+      setSnackbarSeverity('error');
+      const msg = error?.message || 'Failed to save API key';
+      setSnackbarMessage(msg);
+      setSnackbarOpen(true);
     } finally {
       setSaving(false);
     }
@@ -150,18 +158,18 @@ export default function SettingsPage() {
         >
           <Alert
             onClose={handleSnackbarClose}
-            severity="success"
+            severity={snackbarSeverity}
             variant="filled"
             sx={{ 
-              bgcolor: '#5B6F56', 
+              bgcolor: snackbarSeverity === 'success' ? '#5B6F56' : '#8B0000',
               color: '#D6BFA3', 
               fontWeight: 600, 
               boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
               border: '2px solid #4E342E' ,
             }}
-            icon={<CheckCircleIcon />}
+            icon={snackbarSeverity === 'success' ? <CheckCircleIcon /> : undefined}
           >
-            API key saved successfully!
+            {snackbarMessage}
           </Alert>
         </Snackbar>
 

@@ -171,21 +171,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const setApiKey = async (key: string) => {
-    setApiKeyState(key);
+    // Require authentication to sync with backend
+    if (!token) {
+      // Fallback: just update local state when no token available
+      setApiKeyState(key);
+      if (key) {
+        localStorage.setItem('apiKey', key);
+      } else {
+        localStorage.removeItem('apiKey');
+      }
+      return;
+    }
+
+    try {
+      // Attempt to save in backend first to validate format
+      const updatedUser = await updateApiKey(key, token);
+
+      // If successful, persist locally
+      setApiKeyState(key);
       if (key) {
         localStorage.setItem('apiKey', key);
       } else {
         localStorage.removeItem('apiKey');
       }
 
-    if (token) {
-      try {
-        const updatedUser = await updateApiKey(key, token);
-        setUser(updatedUser);
-      } catch (e) {
-        console.error('Failed to update API key in backend', e);
-        // Optional: handle UI feedback for the user
-      }
+      setUser(updatedUser);
+    } catch (e) {
+      console.error('Failed to update API key in backend', e);
+      // Ensure local copy is cleared if backend rejects key
+      setApiKeyState(null);
+      localStorage.removeItem('apiKey');
+      // Propagate error so callers can show UI feedback
+      throw e;
     }
   };
 
