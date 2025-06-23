@@ -114,9 +114,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // On login, check for a key in localStorage first, then from the user object.
       const storedApiKey = localStorage.getItem('apiKey');
-      const keyToSet = storedApiKey || user.api_key || null;
+      // Only keep stored key if backend indicates the user previously saved an API key
+      let keyToSet: string | null = null;
+      if (user.has_api_key) {
+        keyToSet = storedApiKey || null;
+      }
       setApiKeyState(keyToSet);
-      if(keyToSet) {
+      if (keyToSet) {
         localStorage.setItem('apiKey', keyToSet);
       } else {
         localStorage.removeItem('apiKey');

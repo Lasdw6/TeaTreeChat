@@ -14,7 +14,7 @@ export default function SettingsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const theme = useTheme();
   const router = useRouter();
@@ -39,9 +39,7 @@ export default function SettingsPage() {
     try {
       await setApiKey(keyInput.trim());
       await refreshUser();
-      setShowSuccess(true);
-      // Auto-hide success message after 3 seconds
-      setTimeout(() => setShowSuccess(false), 3000);
+      setSnackbarOpen(true);
       // Reset to placeholder if user has a key
       if (user?.has_api_key) {
         setKeyInput("••••••••••••••••••••••••••••••••");
@@ -69,6 +67,11 @@ export default function SettingsPage() {
 
   // Calculate hasKey in a hydration-safe way
   const hasKey = !!(user?.has_api_key || apiKey || (isClient && localStorage.getItem('apiKey')));
+
+  const handleSnackbarClose = (_?: any, reason?: string) => {
+    if (reason === 'clickaway') return;
+    setSnackbarOpen(false);
+  };
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#5B6F56', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', px: 2 }}>
@@ -138,23 +141,29 @@ export default function SettingsPage() {
           {saving ? 'Saving...' : 'Save Key'}
         </Button>
         
-        {showSuccess && (
-          <Alert 
-            severity="success" 
-            icon={<CheckCircleIcon />}
+        {/* Success Snackbar */}
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={3000}
+          onClose={handleSnackbarClose}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert
+            onClose={handleSnackbarClose}
+            severity="success"
+            variant="filled"
             sx={{ 
-              mb: 3, 
-              bgcolor: 'rgba(91, 111, 86, 0.1)', 
-              color: '#5B6F56',
-              border: '1px solid rgba(91, 111, 86, 0.3)',
-              '& .MuiAlert-icon': {
-                color: '#5B6F56'
-              }
+              bgcolor: '#5B6F56', 
+              color: '#D6BFA3', 
+              fontWeight: 600, 
+              boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+              border: '2px solid #4E342E' ,
             }}
+            icon={<CheckCircleIcon />}
           >
             API key saved successfully!
           </Alert>
-        )}
+        </Snackbar>
 
         <Divider sx={{ my: 4, bgcolor: '#D6BFA3', opacity: 0.18, borderRadius: 2 }} />
         <Typography variant="h6" sx={{ mb: 2, color: '#ef4444', fontWeight: 700 }}>Danger Zone</Typography>

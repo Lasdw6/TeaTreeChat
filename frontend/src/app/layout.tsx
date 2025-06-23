@@ -68,10 +68,7 @@ export default function RootLayout({
     <html lang="en" data-google-analytics-opt-out="">
       <body 
         className={inter.className}
-        suppressHydrationWarning={false}
-        data-new-gr-c-s-check-loaded="14.1240.0"
-        data-gr-ext-installed=""
-
+        suppressHydrationWarning={true}
       >
         <AuthProvider>
           <ClientLayout>{children}</ClientLayout>

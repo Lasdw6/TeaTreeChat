@@ -1,10 +1,10 @@
 "use client";
 import { useAuth } from "@/app/AuthProvider";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Chat from "@/components/Chat";
 import ServerStatusLoader from "@/components/ServerStatusLoader";
-import { Box, Paper, Typography, TextField, Button, Tabs, Tab, Alert, Dialog, DialogTitle, DialogContent } from '@mui/material';
+import { Box, Paper, Typography, TextField, Button, Tabs, Tab, Alert, Dialog, DialogTitle, DialogContent, Popper, ClickAwayListener } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import Link from 'next/link';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -13,7 +13,7 @@ import React from "react";
 import TeaTreeSpinner from '@/components/TeaTreeSpinner';
 
 export default function ChatPage() {
-  const { user, token, login, register, loading: authLoading } = useAuth();
+  const { user, token, apiKey, login, register, loading: authLoading } = useAuth();
   const router = useRouter();
   const [tab, setTab] = useState(0);
   const [loginEmail, setLoginEmail] = useState("");
@@ -25,6 +25,8 @@ export default function ChatPage() {
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
   const [serverReady, setServerReady] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const settingsButtonRef = useRef<HTMLButtonElement | null>(null);
   const theme = useTheme();
 
   const emailRegex = /^[^@]+@[^@]+\.[^@]+$/;
@@ -34,6 +36,15 @@ export default function ChatPage() {
     // Only open dialog if auth is complete and user is not logged in
     setOpen(!authLoading && (!user || !token));
   }, [user, token, authLoading]);
+
+  useEffect(() => {
+    if (user && token) {
+      const tutorialShown = typeof window !== 'undefined' ? localStorage.getItem('tutorialShown') : 'true';
+      if (!tutorialShown && !apiKey) {
+        setTutorialOpen(true);
+      }
+    }
+  }, [user, token, apiKey]);
 
   const handleServerReady = () => {
     setServerReady(true);
@@ -90,6 +101,13 @@ export default function ChatPage() {
     }
   };
 
+  const handleCloseTutorial = () => {
+    setTutorialOpen(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tutorialShown', 'true');
+    }
+  };
+
   if (authLoading) {
     return (
       <Box sx={{ minHeight: '100vh', bgcolor: '#5B6F56', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -104,6 +122,7 @@ export default function ChatPage() {
         <Box sx={{ width: '100%', display: 'flex', justifyContent: 'flex-end', p: 2, position: 'absolute', top: 0, right: 0, zIndex: 10 }}>
           <Link href="/settings" style={{ textDecoration: 'none' }}>
             <Button
+              ref={settingsButtonRef}
               startIcon={<SettingsIcon />}
               sx={{ bgcolor: '#D6BFA3', color: '#4E342E', fontWeight: 600, borderRadius: 2, '&:hover': { bgcolor: '#bfae8c' } }}
               variant="contained"
@@ -113,6 +132,59 @@ export default function ChatPage() {
           </Link>
         </Box>
         <Chat />
+
+        {/* Tutorial Popper */}
+        <Popper open={tutorialOpen && Boolean(settingsButtonRef.current)} anchorEl={settingsButtonRef.current} placement="left-start" style={{ zIndex: 1300 }}>
+          <ClickAwayListener onClickAway={handleCloseTutorial}>
+            <Paper
+              elevation={6}
+              sx={{
+                position: 'relative',
+                p: 2,
+                pr: 3,
+                bgcolor: '#4E342E',
+                color: '#D6BFA3',
+                borderRadius: 2,
+                maxWidth: 260,
+                boxShadow: '0 6px 14px rgba(0,0,0,0.18)',
+                '&::after': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 12,
+                  right: -8,
+                  width: 0,
+                  height: 0,
+                  borderLeft: '8px solid #4E342E',
+                  borderTop: '8px solid transparent',
+                  borderBottom: '8px solid transparent',
+                },
+              }}
+            >
+              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5, color: '#D6BFA3' }}>
+                Almost there!
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 1.5, lineHeight: 1.4, color: '#D6BFA3' }}>
+                Add your <strong>OpenRouter API key</strong> in&nbsp;
+                <em>Settings</em> to start chatting.
+              </Typography>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={handleCloseTutorial}
+                sx={{
+                  bgcolor: '#D6BFA3',
+                  color: '#4E342E',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  px: 2,
+                  '&:hover': { bgcolor: '#bfae8c' },
+                }}
+              >
+                Got it!
+              </Button>
+            </Paper>
+          </ClickAwayListener>
+        </Popper>
       </Box>
       <Dialog 
         open={open} 
