@@ -71,7 +71,11 @@ class ChatCacheManager {
     
     // Sort by most recent and take top cached chats
     const sortedChats = [...uniqueChats]
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .sort((a, b) => {
+        const dateA = a.last_message_at ? new Date(a.last_message_at).getTime() : new Date(a.created_at).getTime();
+        const dateB = b.last_message_at ? new Date(b.last_message_at).getTime() : new Date(b.created_at).getTime();
+        return dateB - dateA;
+      })
       .slice(0, MAX_CACHED_CHATS);
 
     // Update cache with new data, preserving messages if they exist

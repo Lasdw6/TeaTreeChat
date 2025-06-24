@@ -85,6 +85,8 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   useEffect(() => {
     if (shouldRefresh && onRefresh) {
       console.log('Refreshing chat list due to shouldRefresh=true');
+      // Clear cached chat list to force fresh API fetch
+      chatCache.clearCache();
       fetchChats().then(() => {
         onRefresh();
       });
@@ -112,6 +114,11 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
     if (cachedChats.length > 0) {
       console.log('Loading chats from cache');
       const deduplicatedCachedChats = deduplicateChats(cachedChats);
+      deduplicatedCachedChats.sort((a: Chat, b: Chat) => {
+        const dateA = a.last_message_at ? new Date(a.last_message_at).getTime() : new Date(a.created_at).getTime();
+        const dateB = b.last_message_at ? new Date(b.last_message_at).getTime() : new Date(b.created_at).getTime();
+        return dateB - dateA;
+      });
       setChats(deduplicatedCachedChats);
       if (error) setError(null);
     }
@@ -131,10 +138,12 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       if (!response.ok) throw new Error('Failed to fetch chats');
       const data = await response.json();
       
-      // Deduplicate and sort the data
+      // Deduplicate and sort the data by last_message_at (fallback to created_at)
       const deduplicatedData = deduplicateChats(data);
       deduplicatedData.sort((a: Chat, b: Chat) => {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        const dateA = a.last_message_at ? new Date(a.last_message_at).getTime() : new Date(a.created_at).getTime();
+        const dateB = b.last_message_at ? new Date(b.last_message_at).getTime() : new Date(b.created_at).getTime();
+        return dateB - dateA;
       });
       
       // Update cache with fresh data

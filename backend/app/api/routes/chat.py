@@ -45,6 +45,7 @@ class ChatResponse(BaseModel):
     created_at: datetime
     message_count: int
     last_message: str | None
+    last_message_at: Optional[datetime] = None
 
 class ChatDetail(BaseModel):
     id: int
@@ -448,7 +449,8 @@ def create_chat(chat: ChatCreate, db: Session = Depends(get_db), current_user: U
             title=db_chat.title,
             created_at=db_chat.created_at,
             message_count=0,
-            last_message=None
+            last_message=None,
+            last_message_at=db_chat.created_at
         )
     except Exception as e:
         db.rollback()
@@ -460,16 +462,23 @@ def get_chats(db: Session = Depends(get_db), current_user: User = Depends(get_cu
         user = current_user
         query = db.query(Chat).filter(Chat.user_id == user.id)
         chats = query.all()
-        return [
-            ChatResponse(
-                id=chat.id,
-                title=chat.title,
-                created_at=chat.created_at,
-                message_count=len(chat.messages),
-                last_message=chat.messages[-1].content if chat.messages else None
+        chat_responses = []
+        for chat in chats:
+            if chat.messages:
+                last_msg_time = chat.messages[-1].created_at
+            else:
+                last_msg_time = chat.created_at
+            chat_responses.append(
+                ChatResponse(
+                    id=chat.id,
+                    title=chat.title,
+                    created_at=chat.created_at,
+                    message_count=len(chat.messages),
+                    last_message=chat.messages[-1].content if chat.messages else None,
+                    last_message_at=last_msg_time
+                )
             )
-            for chat in chats
-        ]
+        return chat_responses
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -556,12 +565,14 @@ def update_chat(chat_id: int, chat_update: ChatUpdate, db: Session = Depends(get
         message_count = len(chat.messages)
         last_message = chat.messages[-1].content if chat.messages else None
         
+        last_msg_time = chat.messages[-1].created_at if chat.messages else chat.created_at
         return ChatResponse(
             id=chat.id,
             title=chat.title,
             created_at=chat.created_at,
             message_count=message_count,
-            last_message=last_message
+            last_message=last_message,
+            last_message_at=last_msg_time
         )
     except Exception as e:
         db.rollback()
