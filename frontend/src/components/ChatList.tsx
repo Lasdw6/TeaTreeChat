@@ -144,10 +144,16 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       // Deduplicate and sort the data by last_message_at (fallback to created_at)
       const deduplicatedData = deduplicateChats(data);
       deduplicatedData.sort((a: Chat, b: Chat) => {
-        const dateA = a.last_message_at ? new Date(a.last_message_at).getTime() : new Date(a.created_at).getTime();
-        const dateB = b.last_message_at ? new Date(b.last_message_at).getTime() : new Date(b.created_at).getTime();
+        const dateA_str = a.last_message_at || a.created_at;
+        const dateB_str = b.last_message_at || b.created_at;
+        const dateA = new Date(dateA_str).getTime();
+        const dateB = new Date(dateB_str).getTime();
+        if(isNaN(dateA) || isNaN(dateB)) {
+            console.warn('[ChatList] Invalid date detected during sort:', { a: a.id, dateA_str }, { b: b.id, dateB_str });
+        }
         return dateB - dateA;
       });
+      console.log('[ChatList] Sorted chats (should be most recent first):', deduplicatedData.map(c => ({id: c.id, title: c.title, last_message_at: c.last_message_at})));
       
       // Update cache with fresh data
       chatCache.updateChats(deduplicatedData);
