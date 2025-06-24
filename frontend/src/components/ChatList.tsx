@@ -20,6 +20,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Chat } from '@/types/chat';
 import { useAuth } from '@/app/AuthProvider';
 import chatCache from '@/lib/chatCache';
@@ -57,7 +58,6 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       console.warn('Full chats array:', chats);
     }
   }, [chats]);
-  const [isLoading, setIsLoading] = useState(false);
   const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false);
   const [newChatTitle, setNewChatTitle] = useState('');
   const [isRenameChatDialogOpen, setIsRenameChatDialogOpen] = useState(false);
@@ -130,7 +130,6 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
     }
     
     try {
-      setIsLoading(true);
       console.log('Fetching fresh chat data from API');
       const response = await fetch(`${API_BASE_URL}/chats?user_id=${user.id}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -167,8 +166,6 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         console.log('API failed, keeping cached chat data');
         setError(null);
       }
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -356,111 +353,117 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
           px: 1
         }
       }}>
-        {isLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress size={24} sx={{ color: '#D6BFA3' }} />
-          </Box>
-        ) : chats.map((chat, index) => (
-          <ListItem
-            key={`${chat.id}-${index}`}
-            disablePadding
-            sx={{
-              mb: 0.5,
-              '&:hover .action-buttons': {
-                opacity: 1,
-              },
-            }}
-            secondaryAction={
-              <Box className="action-buttons" sx={{ 
-                display: 'flex', 
-                opacity: 0, 
-                transition: 'opacity 0.2s',
-                gap: 0.5
-              }}>
-                <IconButton
-                  size="small"
-                  aria-label="rename"
-                  onClick={(e) => handleRenameChat(chat.id, e)}
-                  sx={{
-                    color: selectedChatId === chat.id ? '#4E342E' : '#D6BFA3',
-                    '&:hover': {
-                      bgcolor: selectedChatId === chat.id ? 'rgba(78, 52, 46, 0.1)' : 'rgba(214, 191, 163, 0.1)'
-                    }
-                  }}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              <IconButton
-                  size="small"
-                aria-label="delete"
-                onClick={(e) => handleDeleteChat(chat.id, e)}
-                sx={{
-                  color: '#ef4444',
-                  '&:hover': {
-                    bgcolor: 'rgba(239, 68, 68, 0.1)'
-                  }
-                }}
-              >
-                  <DeleteIcon fontSize="small" />
-              </IconButton>
-              </Box>
-            }
-          >
-            <ListItemButton
-              selected={selectedChatId === chat.id}
-              onClick={() => handleChatSelect(chat.id)}
-              sx={{
-                borderRadius: 2,
-                bgcolor: selectedChatId === chat.id ? '#D6BFA3' : 'transparent',
-                color: selectedChatId === chat.id ? '#5B6F56' : '#D6BFA3',
-                fontWeight: 700,
-                fontSize: '1.08rem',
-                transition: 'background 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s',
-                boxShadow: selectedChatId === chat.id ? '0 2px 8px 0 rgba(91,111,86,0.10)' : 'none',
-                transform: selectedChatId === chat.id ? 'scale(1.04)' : 'scale(1)',
-                '&.Mui-selected': {
-                  bgcolor: '#D6BFA3',
-                  color: '#5B6F56',
-                  '&:hover': {
-                    bgcolor: '#bfae8c',
-                    color: '#5B6F56',
-                    boxShadow: '0 4px 16px 0 rgba(91,111,86,0.13)',
-                    transform: 'scale(1.06)',
-                  },
-                },
-                '&:hover': {
-                  bgcolor: 'rgba(91,111,86,0.1)',
-                  color: '#5B6F56',
-                  boxShadow: '0 4px 16px 0 rgba(91,111,86,0.13)',
-                  transform: 'scale(1.03)',
-                },
-                my: 0.5,
-                mx: 0.5,
-                py: 1.2,
-                px: 2,
-              }}
+        <AnimatePresence>
+          {chats.map((chat) => (
+            <motion.div
+              key={chat.id}
+              layout
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ duration: 0.3 }}
             >
-              <ListItemText
-                primary={
-                  <Typography
-                    variant="body1"
+              <ListItem
+                disablePadding
+                sx={{
+                  mb: 0.5,
+                  '&:hover .action-buttons': {
+                    opacity: 1,
+                  },
+                }}
+                secondaryAction={
+                  <Box className="action-buttons" sx={{ 
+                    display: 'flex', 
+                    opacity: 0, 
+                    transition: 'opacity 0.2s',
+                    gap: 0.5
+                  }}>
+                    <IconButton
+                      size="small"
+                      aria-label="rename"
+                      onClick={(e) => handleRenameChat(chat.id, e)}
+                      sx={{
+                        color: selectedChatId === chat.id ? '#4E342E' : '#D6BFA3',
+                        '&:hover': {
+                          bgcolor: selectedChatId === chat.id ? 'rgba(78, 52, 46, 0.1)' : 'rgba(214, 191, 163, 0.1)'
+                        }
+                      }}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  <IconButton
+                      size="small"
+                    aria-label="delete"
+                    onClick={(e) => handleDeleteChat(chat.id, e)}
                     sx={{
-                      color: selectedChatId === chat.id ? '#5B6F56' : '#D6BFA3',
-                      fontWeight: 500,
-                      fontSize: '0.95rem',
-                      transition: 'color 0.2s',
-                      '.MuiListItemButton-root:hover &': {
-                        color: '#5B6F56',
-                      },
+                      color: '#ef4444',
+                      '&:hover': {
+                        bgcolor: 'rgba(239, 68, 68, 0.1)'
+                      }
                     }}
                   >
-                    {chat.title || 'New Chat'}
-                  </Typography>
+                      <DeleteIcon fontSize="small" />
+                  </IconButton>
+                  </Box>
                 }
-              />
-            </ListItemButton>
-          </ListItem>
-        ))}
+              >
+                <ListItemButton
+                  selected={selectedChatId === chat.id}
+                  onClick={() => handleChatSelect(chat.id)}
+                  sx={{
+                    borderRadius: 2,
+                    bgcolor: selectedChatId === chat.id ? '#D6BFA3' : 'transparent',
+                    color: selectedChatId === chat.id ? '#5B6F56' : '#D6BFA3',
+                    fontWeight: 700,
+                    fontSize: '1.08rem',
+                    transition: 'background 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s',
+                    boxShadow: selectedChatId === chat.id ? '0 2px 8px 0 rgba(91,111,86,0.10)' : 'none',
+                    transform: selectedChatId === chat.id ? 'scale(1.04)' : 'scale(1)',
+                    '&.Mui-selected': {
+                      bgcolor: '#D6BFA3',
+                      color: '#5B6F56',
+                      '&:hover': {
+                        bgcolor: '#bfae8c',
+                        color: '#5B6F56',
+                        boxShadow: '0 4px 16px 0 rgba(91,111,86,0.13)',
+                        transform: 'scale(1.06)',
+                      },
+                    },
+                    '&:hover': {
+                      bgcolor: 'rgba(91,111,86,0.1)',
+                      color: '#5B6F56',
+                      boxShadow: '0 4px 16px 0 rgba(91,111,86,0.13)',
+                      transform: 'scale(1.03)',
+                    },
+                    my: 0.5,
+                    mx: 0.5,
+                    py: 1.2,
+                    px: 2,
+                  }}
+                >
+                  <ListItemText
+                    primary={
+                      <Typography
+                        variant="body1"
+                        sx={{
+                          color: selectedChatId === chat.id ? '#5B6F56' : '#D6BFA3',
+                          fontWeight: 500,
+                          fontSize: '0.95rem',
+                          transition: 'color 0.2s',
+                          '.MuiListItemButton-root:hover &': {
+                            color: '#5B6F56',
+                          },
+                        }}
+                      >
+                        {chat.title || 'New Chat'}
+                      </Typography>
+                    }
+                  />
+                </ListItemButton>
+              </ListItem>
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </List>
 
       <Paper

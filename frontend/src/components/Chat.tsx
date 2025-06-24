@@ -335,6 +335,12 @@ export default function Chat() {
       // Optimistically add user message to UI
       setMessages(prev => [...prev, userMessage]);
 
+      // Optimistically move the chat to the top
+      if (selectedChatId) {
+        chatCache.moveChatToTop(selectedChatId);
+        setShouldRefreshChats(true); // Trigger a refresh in the chat list
+      }
+
       // Create a temporary message for streaming
       tempMessageId = getUniqueId();
       setStreamingMessageId(tempMessageId);
@@ -404,6 +410,10 @@ export default function Chat() {
             }
             return msg;
           });
+          // Also update the cache
+          if (selectedChatId) {
+            chatCache.cacheMessages(selectedChatId, updatedMessages);
+          }
           return updatedMessages;
         });
       };
@@ -425,8 +435,17 @@ export default function Chat() {
                 }
                 // Set a timeout to ensure we get any delayed chunks
                 lastChunkTimeout = setTimeout(() => {
-                  updateMessage(accumulatedContent);
-                }, 500);
+                  console.log("Stream finished (timeout).");
+                  reader.cancel();
+                  // Final cache update and refresh
+                  if (selectedChatId) {
+                    setMessages(currentMessages => {
+                      chatCache.cacheMessages(selectedChatId, currentMessages);
+                      return currentMessages;
+                    });
+                    setShouldRefreshChats(true);
+                  }
+                }, 2000);
                 break;
               }
 
@@ -518,8 +537,10 @@ export default function Chat() {
         });
       }
       
-      // Refresh chat list
-      setShouldRefreshChats(true);
+      // Refresh chat list again to get final data
+      if (selectedChatId) {
+        setShouldRefreshChats(true);
+      }
     } catch (error) {
       console.error("Error in chat:", error);
       // Remove the temporary message if there was an error and it is still empty (not replaced by error)
@@ -678,8 +699,17 @@ export default function Chat() {
                 }
                 // Set a timeout to ensure we get any delayed chunks
                 lastChunkTimeout = setTimeout(() => {
-                  updateMessage(accumulatedContent);
-                }, 500);
+                  console.log("Stream finished (timeout).");
+                  reader.cancel();
+                  // Final cache update and refresh
+                  if (selectedChatId) {
+                    setMessages(currentMessages => {
+                      chatCache.cacheMessages(selectedChatId, currentMessages);
+                      return currentMessages;
+                    });
+                    setShouldRefreshChats(true);
+                  }
+                }, 2000);
                 break;
               }
 
@@ -759,14 +789,6 @@ export default function Chat() {
 
       // Clear streaming state
       setStreamingMessageId(undefined);
-      
-      // Update cache with new messages
-      if (selectedChatId) {
-        setMessages(currentMessages => {
-          chatCache.cacheMessages(selectedChatId, currentMessages);
-          return currentMessages;
-        });
-      }
       
       // Refresh chat list
       setShouldRefreshChats(true);

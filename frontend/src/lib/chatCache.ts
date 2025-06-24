@@ -117,6 +117,25 @@ class ChatCacheManager {
     }
   }
 
+  public moveChatToTop(chatId: number): void {
+    const chatIndex = this.cache.chats.findIndex(c => c.id === chatId);
+    if (chatIndex !== -1) {
+      // If it's already at the top, just update its timestamp
+      if (chatIndex === 0) {
+        this.cache.chats[0].last_message_at = new Date().toISOString();
+        this.saveToStorage();
+        return;
+      }
+      
+      // Otherwise, move it to the top
+      const [chatToMove] = this.cache.chats.splice(chatIndex, 1);
+      chatToMove.last_message_at = new Date().toISOString(); // Optimistically update timestamp
+      this.cache.chats.unshift(chatToMove);
+      this.saveToStorage();
+      console.log(`[ChatCache] Optimistically moved chat ${chatId} to top.`);
+    }
+  }
+
   public addNewChat(chat: Chat): void {
     // Check if chat already exists
     const existingIndex = this.cache.chats.findIndex(c => c.id === chat.id);
