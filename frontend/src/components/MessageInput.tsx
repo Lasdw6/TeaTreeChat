@@ -3,6 +3,8 @@ import ModelSelector from './ModelSelector';
 import { Send as SendIcon, Close as CloseIcon, Attachment as AttachmentIcon, Edit as EditIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, OpenInNew as OpenInNewIcon } from '@mui/icons-material';
 import TeaTreeLogo from './TeaTreeLogo';
 import { Modal, Box, Typography, IconButton, Button, TextareaAutosize, Tooltip } from '@mui/material';
+import useMediaQuery from '@/hooks/useMediaQuery';
+import { Fade } from '@mui/material';
 
 interface MessageInputProps {
   onSendMessage: (message: { content: string; attachments: string[] }) => void;
@@ -30,6 +32,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const [editedPastedContent, setEditedPastedContent] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isMobile = useMediaQuery('(max-width: 768px)');
   
   // Auto-resize the textarea
   useEffect(() => {
@@ -145,8 +148,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
   };
   
   return (
-    <div className="flex flex-col w-full max-w-4xl mx-auto" style={{ width: '100%' }}>
-      <form onSubmit={handleSubmit} className="p-4 border-t border-gray-700 rounded-2xl shadow-lg" style={{ background: '#4E342E', width: '100%' }}>
+    <div className="flex flex-col w-full max-w-6xl mx-auto" style={{ width: '100%' }}>
+      <form onSubmit={handleSubmit} className="px-4 pt-4 pb-2 border-t border-gray-700 rounded-2xl shadow-lg" style={{ background: '#4E342E', width: '100%' }}>
         {/* Pasted content chips container with themed scrollbar */}
         {pastedContents.length > 0 && (
           <div 
@@ -209,20 +212,18 @@ const MessageInput: React.FC<MessageInputProps> = ({
             ))}
           </div>
         )}
-        <div className="flex items-start space-x-3 w-full">
-          <TeaTreeLogo size={48} />
-          <div className="flex-1 flex flex-col">
-            <div 
-              className="flex items-end bg-[#D6BFA3] rounded-lg p-2 space-x-2"
-            >
-              <ModelSelector
-                selectedModel={selectedModel}
-                onModelChange={onModelChange}
-                disabled={disabled}
-                className="flex-shrink-0"
-                forceUpward={forceUpward}
-                compact={true}
-              />
+        {isMobile ? (
+          // Mobile layout: Compact, unified bar
+          <div className="w-full flex-1 bg-[#D6BFA3] rounded-lg p-2 flex flex-col space-y-2">
+            <ModelSelector
+              selectedModel={selectedModel}
+              onModelChange={onModelChange}
+              disabled={disabled}
+              className="w-full"
+              forceUpward={forceUpward}
+              compact={false}
+            />
+            <div className="flex items-end space-x-2 w-full">
               <div className="flex-1 relative">
                 <textarea
                   ref={textareaRef}
@@ -233,243 +234,124 @@ const MessageInput: React.FC<MessageInputProps> = ({
                   placeholder={pastedContents.length > 0 ? "Add to your pasted content..." : placeholder}
                   disabled={disabled}
                   className="w-full min-h-[2.5rem] max-h-32 py-1 px-2 resize-none bg-transparent border-none rounded-lg placeholder-gray-600 focus:outline-none focus:ring-0 transition-all overflow-y-auto whitespace-pre-wrap break-words themed-scrollbar"
-                  style={{ 
-                    color: '#111',
-                    scrollbarWidth: 'thin',
-                    scrollbarColor: '#4E342E #D6BFA3'
-                  }}
+                  style={{ color: '#111', scrollbarWidth: 'thin', scrollbarColor: '#4E342E #D6BFA3' }}
                   rows={1}
                 />
-                <style jsx>{`
-                  .themed-scrollbar::-webkit-scrollbar {
-                    width: 6px;
-                  }
-                  .themed-scrollbar::-webkit-scrollbar-track {
-                    background: #D6BFA3;
-                    border-radius: 3px;
-                  }
-                  .themed-scrollbar::-webkit-scrollbar-thumb {
-                    background: #4E342E;
-                    border-radius: 3px;
-                  }
-                  .themed-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: #5a4e44;
-                  }
-                `}</style>
               </div>
-              <button
-                type="submit"
-                disabled={(!message.trim() && pastedContents.length === 0) || disabled}
-                className="self-stretch flex items-center justify-center px-4 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-[#5B6F56] transition-all hover:scale-105 active:scale-95 flex-shrink-0"
-                style={{ background: '#4E342E', color: '#fff' }}
-              >
-                <SendIcon className="w-5 h-5" />
+              <button type="submit" disabled={disabled || (!message.trim() && pastedContents.length === 0)} className="self-end p-2 rounded-full text-white disabled:opacity-50 transition-colors" style={{ background: '#5B6F56', color: '#D6BFA3' }}>
+                <SendIcon />
               </button>
             </div>
           </div>
-        </div>
+        ) : (
+          // Desktop layout: Original format
+          <div className="flex items-start w-full space-x-3">
+            <TeaTreeLogo size={48} />
+            <div className="flex-1 bg-[#D6BFA3] rounded-lg flex items-center p-1 space-x-2">
+              <ModelSelector
+                selectedModel={selectedModel}
+                onModelChange={onModelChange}
+                disabled={disabled}
+                forceUpward={forceUpward}
+                compact={true}
+                className="flex-shrink-0"
+              />
+              <textarea
+                ref={textareaRef}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
+                placeholder={pastedContents.length > 0 ? "Add to your pasted content..." : placeholder}
+                disabled={disabled}
+                className="flex-1 min-h-[2.5rem] max-h-32 py-1 px-2 resize-none bg-transparent border-none rounded-lg placeholder-gray-600 focus:outline-none focus:ring-0 transition-all overflow-y-auto whitespace-pre-wrap break-words themed-scrollbar"
+                style={{ color: '#111', scrollbarWidth: 'thin', scrollbarColor: '#4E342E #D6BFA3' }}
+                rows={1}
+              />
+              <button type="submit" disabled={disabled || (!message.trim() && pastedContents.length === 0)} className="p-2 rounded-full text-white disabled:opacity-50 transition-colors" style={{ background: '#5B6F56', color: '#D6BFA3' }}>
+                <SendIcon />
+              </button>
+            </div>
+          </div>
+        )}
       </form>
-       <Modal
-        open={!!modalState}
-        onClose={handleCloseModal}
-        aria-labelledby="pasted-text-title"
-        aria-describedby="pasted-text-content"
-        sx={{
-          '& .MuiBackdrop-root': {
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          },
-        }}
-      >
-        <Box sx={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: isFullscreen ? '95vw' : '80%',
-          height: isFullscreen ? '95vh' : 'auto',
-          maxWidth: isFullscreen ? 'none' : 800,
-          maxHeight: isFullscreen ? 'none' : '80vh',
-          bgcolor: '#4E342E',
-          color: '#D6BFA3',
-          border: '2px solid #D6BFA3',
-          boxShadow: 24,
-          borderRadius: 2,
-          display: 'flex',
-          flexDirection: 'column',
-          outline: 'none',
-        }}>
-          {/* Header with title and action buttons */}
-          <Box sx={{
+      {modalState && (
+        <Modal
+          open={true}
+          onClose={handleCloseModal}
+          aria-labelledby="pasted-content-modal-title"
+          sx={{
             display: 'flex',
-            justifyContent: 'space-between',
             alignItems: 'center',
-            p: 2,
-            borderBottom: '1px solid #D6BFA3',
-          }}>
-            <Typography id="pasted-text-title" variant="h6" component="h2" sx={{ color: '#D6BFA3', fontWeight: 600 }}>
-              {isEditingPasted ? `Edit Pasted Text #${(modalState?.index ?? 0) + 1}` : `Pasted Text #${(modalState?.index ?? 0) + 1}`}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              {isEditingPasted ? (
-                // Show Save and Cancel buttons when editing
-                <>
-                  <Button 
-                    onClick={handleSavePastedEdit} 
-                    variant="contained" 
-                    size="small"
-                    sx={{ 
-                      background: '#D6BFA3', 
-                      color: '#4E342E', 
-                      '&:hover': { background: '#c7b396' },
-                      minWidth: '60px'
-                    }}
-                  >
-                    Save
-                  </Button>
-                  <Button 
-                    onClick={() => setIsEditingPasted(false)} 
-                    variant="outlined"
-                    size="small"
-                    sx={{ 
-                      color: '#D6BFA3', 
-                      borderColor: '#D6BFA3',
-                      '&:hover': { 
-                        borderColor: '#c7b396',
-                        backgroundColor: 'rgba(214, 191, 163, 0.1)'
-                      },
-                      minWidth: '60px'
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </>
-              ) : (
-                // Show action buttons when not editing
-                <>
-                  <Tooltip title="Edit">
-                    <IconButton 
-                      onClick={() => setIsEditingPasted(true)} 
-                      size="small"
-                      sx={{ 
-                        color: '#D6BFA3',
-                        '&:hover': {
-                          backgroundColor: 'rgba(214, 191, 163, 0.1)',
-                        },
-                      }}
-                    >
-                      <EditIcon fontSize="small" />
+            justifyContent: 'center',
+          }}
+        >
+          <Fade in={true}>
+            <Box
+              sx={{
+                position: 'relative',
+                bgcolor: 'background.paper',
+                border: '2px solid #000',
+                boxShadow: 24,
+                p: 4,
+                width: isFullscreen ? '100vw' : '80vw',
+                height: isFullscreen ? '100vh' : '80vh',
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'width 0.3s, height 0.3s',
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexShrink: 0 }}>
+                <Typography id="pasted-content-modal-title" variant="h6" component="h2">
+                  {isEditingPasted ? 'Edit' : 'View'} Pasted Text #{modalState.index + 1}
+                </Typography>
+                <Box>
+                  <Tooltip title={isEditingPasted ? 'Save' : 'Edit'}>
+                    <IconButton onClick={isEditingPasted ? handleSavePastedEdit : () => setIsEditingPasted(true)}>
+                      {isEditingPasted ? <SendIcon /> : <EditIcon />}
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Open in New Tab">
-                    <IconButton
-                      onClick={handleOpenInNewTab}
-                      size="small"
-                      sx={{
-                        color: '#D6BFA3',
-                        '&:hover': {
-                          backgroundColor: 'rgba(214, 191, 163, 0.1)',
-                        },
-                      }}
-                    >
-                      <OpenInNewIcon fontSize="small" />
+                  <Tooltip title="Open in new tab">
+                    <IconButton onClick={handleOpenInNewTab}>
+                      <OpenInNewIcon />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
-                    <IconButton
-                      onClick={handleToggleFullscreen}
-                      size="small"
-                      sx={{
-                        color: '#D6BFA3',
-                        '&:hover': {
-                          backgroundColor: 'rgba(214, 191, 163, 0.1)',
-                        },
-                      }}
-                    >
-                      {isFullscreen ? <FullscreenExitIcon fontSize="small" /> : <FullscreenIcon fontSize="small" />}
+                  <Tooltip title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}>
+                    <IconButton onClick={handleToggleFullscreen}>
+                      {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Close">
-                    <IconButton
-                      onClick={handleCloseModal}
-                      size="small"
-                      sx={{
-                        color: '#D6BFA3',
-                        '&:hover': {
-                          backgroundColor: 'rgba(214, 191, 163, 0.1)',
-                        },
-                      }}
-                    >
-                      <CloseIcon fontSize="small" />
+                    <IconButton onClick={handleCloseModal}>
+                      <CloseIcon />
                     </IconButton>
                   </Tooltip>
-                </>
-              )}
+                </Box>
+              </Box>
+              <Box sx={{ flex: 1, overflow: 'auto', border: '1px solid #ddd', p: 2, borderRadius: 1 }}>
+                {isEditingPasted ? (
+                  <TextareaAutosize
+                    value={editedPastedContent}
+                    onChange={(e) => setEditedPastedContent(e.target.value)}
+                    style={{ width: '100%', height: '100%', resize: 'none', border: 'none', outline: 'none' }}
+                  />
+                ) : (
+                  <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>
+                    {modalState.content}
+                  </pre>
+                )}
+              </Box>
             </Box>
-          </Box>
-          {/* Content area */}
-          <Box sx={{
-            bgcolor: '#D6BFA3',
-            color: '#111',
-            m: 2,
-            p: 3,
-            borderRadius: 1,
-            overflowY: 'auto',
-            flex: 1,
-            minHeight: isFullscreen ? '85vh' : '300px',
-            scrollbarWidth: 'thin', 
-            scrollbarColor: '#4E342E #D6BFA3',
-            '&::-webkit-scrollbar': {
-              width: '8px',
-            },
-            '&::-webkit-scrollbar-track': {
-              background: '#D6BFA3',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              background: '#4E342E',
-              borderRadius: '4px',
-              '&:hover': {
-                background: '#5a4e44',
-              },
-            },
-          }}>
-            {isEditingPasted ? (
-              <TextareaAutosize
-                value={editedPastedContent}
-                onChange={(e) => setEditedPastedContent(e.target.value)}
-                minRows={isFullscreen ? 25 : 10}
-                style={{
-                  width: '100%',
-                  background: 'transparent',
-                  color: '#111',
-                  border: 'none',
-                  padding: '0',
-                  fontSize: isFullscreen ? '0.9rem' : 'inherit',
-                  fontFamily: 'monospace',
-                  resize: 'none',
-                  outline: 'none',
-                  lineHeight: 1.5,
-                }}
-              />
-            ) : (
-              <Typography 
-                component="pre" 
-                sx={{ 
-                  whiteSpace: 'pre-wrap', 
-                  wordBreak: 'break-word', 
-                  fontFamily: 'monospace',
-                  fontSize: isFullscreen ? '0.9rem' : '0.875rem',
-                  lineHeight: 1.5,
-                  margin: 0,
-                }}
-              >
-                {modalState?.content}
-              </Typography>
-            )}
-          </Box>
-        </Box>
-      </Modal>
+          </Fade>
+        </Modal>
+      )}
     </div>
   );
 };
 
-export default MessageInput; 
+export default MessageInput;
+
+// Helper function to determine if the message input should be forced upward
+function shouldForceUpward(forceUpward: boolean | undefined, isMobile: boolean): boolean {
+  return forceUpward || isMobile;
+} 

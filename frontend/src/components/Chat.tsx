@@ -2,16 +2,16 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ChatList from './ChatList';
 import MessageList, { MessageListRef } from './MessageList';
 import MessageInput from './MessageInput';
-import { useRouter } from 'next/navigation';
-import { Menu as MenuIcon, ChevronLeft as ChevronLeftIcon, ArrowDownward as ArrowDownwardIcon } from '@mui/icons-material';
+import { useRouter, usePathname } from 'next/navigation';
+import { Menu as MenuIcon, ChevronLeft as ChevronLeftIcon, ArrowDownward as ArrowDownwardIcon, Settings as SettingsIcon } from '@mui/icons-material';
 import { useAuth } from '@/app/AuthProvider';
 import { useTheme } from '@mui/material/styles';
-import { Box, Fade, Fab, Typography } from '@mui/material';
+import { Box, Fade, Fab, Typography, Drawer, IconButton, useMediaQuery } from '@mui/material';
 import TeaTreeLogo from './TeaTreeLogo';
 import chatCache from '@/lib/chatCache';
 import { getModels } from '@/lib/api';
 import { Model } from '@/types/chat';
-import { DEFAULT_MODEL } from '@/lib/constants';
+import { DEFAULT_MODEL, APP_NAME } from '@/lib/constants';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 console.log('DEFAULT_MODEL defined as:', DEFAULT_MODEL);
@@ -47,12 +47,16 @@ export default function Chat() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const { user, token } = useAuth();
   const theme = useTheme();
   const idCounter = useRef(0);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const messageListRef = useRef<MessageListRef>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isSettingsPage = pathname === '/settings';
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   function getUniqueId() {
     idCounter.current += 1;
@@ -862,67 +866,126 @@ export default function Chat() {
     setShouldRefreshChats(false);
   };
 
+  const handleSelectChat = (chatId: number | null) => {
+    setSelectedChatId(chatId);
+    if (isMobile) {
+      setMobileSidebarOpen(false);
+    }
+  };
+
+  const sidebarContent = (
+    <ChatList 
+      onSelectChat={handleSelectChat} 
+      selectedChatId={selectedChatId} 
+      shouldRefresh={shouldRefreshChats}
+      onRefresh={onChatListRefresh}
+    />
+  );
+
   return (
     <div className="flex h-screen" style={{ background: 'transparent' }}>
-      {/* Collapsible Sidebar */}
-      <div className={`transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col relative`} style={{ background: '#4E342E', paddingRight: '4px', paddingTop: '4px' }}>
-        <button
-          className="p-2 w-full text-left focus:outline-none hover:text-white cursor-pointer flex items-center justify-center"
-          style={{ 
-            color: '#D6BFA3', 
-            backgroundColor: '#4E342E',
-            transition: 'all 0.2s ease',
-            border: 'none',
-            zIndex: 10,
-            position: 'relative',
-            minHeight: '48px'
+      {isMobile ? (
+        <Drawer
+          open={mobileSidebarOpen}
+          onClose={() => setMobileSidebarOpen(false)}
+          variant="temporary"
+          sx={{
+            '& .MuiDrawer-paper': {
+              width: 260,
+              backgroundColor: '#4E342E',
+              color: '#D6BFA3',
+            },
           }}
-          onClick={() => setSidebarOpen((open) => !open)}
         >
-          {sidebarOpen ? (
-            <ChevronLeftIcon />
-          ) : (
-            <div className="flex flex-col items-center">
-              <TeaTreeLogo size={24} />
-            </div>
-          )}
-        </button>
-        {sidebarOpen && (
-      <ChatList 
-        onSelectChat={setSelectedChatId} 
-        selectedChatId={selectedChatId} 
-        shouldRefresh={shouldRefreshChats}
-        onRefresh={onChatListRefresh}
-      />
-        )}
-        {/* API Key indicator dot at bottom of collapsed sidebar */}
-        {!sidebarOpen && (
-          <div 
-            style={{
-              position: 'absolute',
-              bottom: '8px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              backgroundColor: '#D6BFA3',
-              padding: '6px',
-              borderRadius: '6px',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          {sidebarContent}
+        </Drawer>
+      ) : (
+        <div className={`transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-12'} flex flex-col relative`} style={{ background: '#4E342E', paddingRight: '4px', paddingTop: '4px' }}>
+          <button
+            className="p-2 w-full text-left focus:outline-none hover:text-white cursor-pointer flex items-center justify-center"
+            style={{ 
+              color: '#D6BFA3', 
+              backgroundColor: '#4E342E',
+              transition: 'all 0.2s ease',
+              border: 'none',
+              zIndex: 10,
+              position: 'relative',
+              minHeight: '48px'
             }}
-            title={(user?.has_api_key || apiKey) ? 'API Key Set' : 'No API Key'}
+            onClick={() => setSidebarOpen((open) => !open)}
           >
+            {sidebarOpen ? (
+              <ChevronLeftIcon />
+            ) : (
+              <div className="flex flex-col items-center">
+                <TeaTreeLogo size={24} />
+              </div>
+            )}
+          </button>
+          {sidebarOpen && sidebarContent}
+          {/* API Key indicator dot at bottom of collapsed sidebar */}
+          {!sidebarOpen && (
             <div 
               style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: (user?.has_api_key || apiKey) ? '#5B6F56' : '#ef4444',
-                border: '1px solid #4E342E',
+                position: 'absolute',
+                bottom: '8px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                backgroundColor: '#D6BFA3',
+                padding: '6px',
+                borderRadius: '6px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
               }}
-            />
+              title={user ? (user.has_api_key ? 'API Key Set' : 'No API Key Set') : (apiKey ? 'API Key Set' : 'No API Key Set')}
+            >
+              <div 
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: user ? (user.has_api_key ? '#5B6F56' : '#ef4444') : (apiKey ? '#5B6F56' : '#ef4444'),
+                  border: '1px solid #4E342E',
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+      <div className="flex-1 flex flex-col" style={{ background: 'transparent' }}>
+        {isMobile && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '8px 16px',
+            borderBottom: `1px solid ${theme.palette.divider}`,
+            position: 'sticky',
+            top: 0,
+            background: '#4E342E',
+            zIndex: 1100,
+          }}>
+            <IconButton
+              onClick={() => setMobileSidebarOpen(true)}
+              edge="start"
+              sx={{ color: '#D6BFA3', flexShrink: 0 }}
+            >
+              <MenuIcon />
+            </IconButton>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <TeaTreeLogo size={28} />
+              <Typography variant="h6" sx={{ color: '#D6BFA3' }}>
+                {APP_NAME}
+              </Typography>
+            </div>
+            <IconButton
+              onClick={() => router.push('/settings')}
+              edge="end"
+              sx={{ color: '#D6BFA3', visibility: isSettingsPage ? 'hidden' : 'visible' }}
+            >
+              <SettingsIcon />
+            </IconButton>
           </div>
         )}
-      </div>
-      <div className="flex-1 flex flex-col" style={{ background: 'transparent' }}>
         {(isInitializing || isChatLoading) && (
           <div className="flex-1 flex items-center justify-center">
             <Box sx={{ 
@@ -1000,7 +1063,7 @@ export default function Chat() {
           </div>
         )}
         {!isInitializing && !isChatLoading && selectedChatId && messages.length === 0 && (
-          <div className="flex-1 flex flex-col items-center justify-center min-h-0 py-8">
+          <div className="flex-1 flex flex-col items-center justify-center min-h-0 py-4 md:py-8">
             <div className="w-full max-w-2xl rounded-2xl shadow-lg bg-gray-800" style={{ marginTop: '20vh' }}>
               <MessageInput
                 onSendMessage={handleSend}
@@ -1026,7 +1089,7 @@ export default function Chat() {
               availableModels={availableModels}
               onScrollPositionChange={setIsAtBottom}
             />
-            <Box sx={{ position: 'relative' }}>
+            <Box sx={{ position: 'relative', width: '100%', maxWidth: '48rem', mx: 'auto', px: { xs: 1, sm: 2 } }}>
               <MessageInput
                 onSendMessage={handleSend}
                 disabled={streamingMessageId !== undefined}

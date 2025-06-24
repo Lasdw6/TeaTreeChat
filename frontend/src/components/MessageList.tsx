@@ -227,15 +227,15 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
   return (
     <>
     <div className={`flex justify-center mb-4`}>
-      <div className={`flex flex-col w-[70%]`}>
+      <div className={`flex flex-col w-full md:w-[70%]`}>
         <div
           data-message-id={message.id}
           className={`max-w-full rounded-lg p-4 relative ${
             message.role === 'user'
-              ? 'self-end ml-28 mr-40'
+              ? 'self-end ml-10 mr-4 md:ml-28 md:mr-40'
               : message.role === 'system'
               ? 'self-center'
-              : 'self-start ml-14 mr-48'
+              : 'self-start ml-4 mr-10 md:ml-14 md:mr-48'
           }`}
           style={
             message.role === 'user'

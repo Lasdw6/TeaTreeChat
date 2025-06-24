@@ -481,7 +481,6 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
           bgcolor: '#4E342E',
           borderRadius: 3,
           boxShadow: '0 1px 4px 0 rgba(91,111,86,0.10)',
-          mb: 1.5,
           zIndex: 1,
           position: 'relative',
           minWidth: 0,
