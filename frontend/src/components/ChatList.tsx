@@ -138,6 +138,9 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       if (!response.ok) throw new Error('Failed to fetch chats');
       const data = await response.json();
       
+      // Debug: log raw response data
+      console.log('[ChatList] /chats API response:', data);
+      
       // Deduplicate and sort the data by last_message_at (fallback to created_at)
       const deduplicatedData = deduplicateChats(data);
       deduplicatedData.sort((a: Chat, b: Chat) => {
