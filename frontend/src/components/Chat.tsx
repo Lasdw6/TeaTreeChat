@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ChatList from './ChatList';
 import MessageList, { MessageListRef } from './MessageList';
 import MessageInput from './MessageInput';
 import { useRouter, usePathname } from 'next/navigation';
 import { Menu as MenuIcon, ChevronLeft as ChevronLeftIcon, ArrowDownward as ArrowDownwardIcon, Settings as SettingsIcon } from '@mui/icons-material';
-import { useAuth } from '@/app/AuthProvider';
+import { useUser, useAuth } from '@clerk/nextjs';
 import { useTheme } from '@mui/material/styles';
-import { Box, Fade, Fab, Typography, Drawer, IconButton, useMediaQuery } from '@mui/material';
+import { Box, Fade, Fab, Typography, Drawer, IconButton } from '@mui/material';
 import TeaTreeLogo from './TeaTreeLogo';
 import chatCache from '@/lib/chatCache';
-import { getModels } from '@/lib/api';
+import { getModels, pingServer } from '@/lib/api';
 import { Model } from '@/types/chat';
 import { DEFAULT_MODEL, APP_NAME } from '@/lib/constants';
+import useMediaQuery from '@/hooks/useMediaQuery';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 console.log('DEFAULT_MODEL defined as:', DEFAULT_MODEL);
@@ -41,14 +42,15 @@ export default function Chat() {
   const [shouldRefreshChats, setShouldRefreshChats] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | undefined>(undefined);
-  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
+  const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_MODEL);
   const [availableModels, setAvailableModels] = useState<Model[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  const { user, token } = useAuth();
+  const { user: clerkUser } = useUser();
+  const { getToken } = useAuth();
   const theme = useTheme();
   const idCounter = useRef(0);
   const [apiKey, setApiKey] = useState<string | null>(null);
@@ -81,21 +83,18 @@ export default function Chat() {
   useEffect(() => {
     const fetchModels = async () => {
       try {
+        setIsInitializing(true);
+        await pingServer();
         const models = await getModels();
         setAvailableModels(models);
       } catch (error) {
-        console.error("Failed to fetch models:", error);
+        console.error('Error fetching models:', error);
+      } finally {
+        setIsInitializing(false);
       }
     };
-    fetchModels();
-  }, []);
 
-  // Handle initial loading state
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsInitializing(false);
-    }, 100); // Small delay to prevent flash
-    return () => clearTimeout(timer);
+    fetchModels();
   }, []);
 
   useEffect(() => {
@@ -195,12 +194,19 @@ export default function Chat() {
         setIsChatLoading(false); // Stop loading UI since we have something to show
       }
       
+      // If no signed-in user, do not attempt API fetch
+      if (!clerkUser) {
+        setIsChatLoading(false);
+        return;
+      }
+
       // Fetch fresh data from API
       console.log(`Fetching fresh data for chat ${chatId} from API`);
+      const token = await getToken();
       const response = await fetch(`${API_BASE_URL}/chats/${chatId}/messages`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
-      if (!response.ok) throw new Error('Failed to fetch chat messages');
+      if (!response.ok) throw new Error('Failed to fetch messages');
       const data = await response.json();
       
       console.log('Fetched fresh messages from API:', data);
@@ -264,29 +270,6 @@ export default function Chat() {
 
     if (!combinedContent.trim() || !selectedChatId) return;
 
-    // Check if user has API key set in their account
-    if (!user?.has_api_key) {
-      const errMsg = 'No API key detected. Please set your OpenRouter API key in Settings.';
-      const userMessage: Message = {
-        id: getUniqueId(),
-        role: 'user',
-        content: combinedContent,
-        attachments: [],
-        created_at: new Date().toISOString(),
-        chat_id: selectedChatId,
-        model: selectedModel
-      };
-      setMessages(prev => [...prev, userMessage, {
-        id: getUniqueId(),
-        role: 'assistant',
-        content: errMsg,
-        created_at: new Date().toISOString(),
-        chat_id: selectedChatId,
-        model: selectedModel
-      }]);
-      return;
-    }
-
     let tempMessageId: string | undefined = undefined;
     setIsLoading(true);
 
@@ -302,38 +285,43 @@ export default function Chat() {
         model: selectedModel
       };
 
-      // Add user message to chat
-      const userResponse = await fetch(
-        `${API_BASE_URL}/chats/${selectedChatId}/messages`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({
-            role: "user",
-            content: combinedContent,
-            model: selectedModel
-          }),
-        }
-      );
+      // Get token for authenticated requests
+      const token = clerkUser ? await getToken() : null;
 
-      if (!userResponse.ok) {
-        const errData = await userResponse.json().catch(() => ({}));
-        const errMsg = errData.detail || "Failed to add user message";
-        // Surface error to the UI as a system message
-        const newSystemMsg: Message = {
-          id: getUniqueId(),
-          role: "assistant",
-          content: errMsg,
-          created_at: new Date().toISOString(),
-          chat_id: selectedChatId,
-          model: selectedModel
-        };
-        setMessages(prev => [...prev, userMessage, newSystemMsg]);
-        setStreamingMessageId(undefined);
-        throw new Error(errMsg);
+      // Persist user message only when logged in
+      if (clerkUser && token) {
+        const userResponse = await fetch(
+          `${API_BASE_URL}/chats/${selectedChatId}/messages`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              role: "user",
+              content: combinedContent,
+              model: selectedModel,
+            }),
+          }
+        );
+
+        if (!userResponse.ok) {
+          const errData = await userResponse.json().catch(() => ({}));
+          const errMsg = errData.detail || "Failed to add user message";
+          // Surface error to the UI as a system message
+          const newSystemMsg: Message = {
+            id: getUniqueId(),
+            role: "assistant",
+            content: errMsg,
+            created_at: new Date().toISOString(),
+            chat_id: selectedChatId,
+            model: selectedModel,
+          };
+          setMessages((prev) => [...prev, userMessage, newSystemMsg]);
+          setStreamingMessageId(undefined);
+          throw new Error(errMsg);
+        }
       }
 
       // Optimistically add user message to UI
@@ -358,12 +346,15 @@ export default function Chat() {
       };
       setMessages(prev => [...prev, tempMessage]);
 
+      // Determine the correct completions endpoint based on auth state
+      const completionsPath = clerkUser && token ? "/completions" : "/guest/completions";
+
       // Get AI response with streaming
-      const aiResponse = await fetch(`${API_BASE_URL}/completions`, {
+      const aiResponse = await fetch(`${API_BASE_URL}${completionsPath}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
+          ...(clerkUser && token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           model: selectedModel,
@@ -423,15 +414,15 @@ export default function Chat() {
       };
 
       try {
-      while (true) {
-        const { done, value } = await reader.read();
+        while (true) {
+          const { done, value } = await reader.read();
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n').filter(line => line.trim() !== '');
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
               if (data === '[DONE]') {
                 // Clear any existing timeout
                 if (lastChunkTimeout) {
@@ -453,26 +444,26 @@ export default function Chat() {
                 break;
               }
 
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.detail) {
-                const errMsg: string = parsed.detail;
-                accumulatedContent = errMsg;
-                updateMessage(errMsg);
-                setStreamingMessageId(undefined);
-                // Cancel further reading
-                reader?.cancel().catch(() => {});
-                break;
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.detail) {
+                  const errMsg: string = parsed.detail;
+                  accumulatedContent = errMsg;
+                  updateMessage(errMsg);
+                  setStreamingMessageId(undefined);
+                  // Cancel further reading
+                  reader?.cancel().catch(() => {});
+                  break;
+                }
+                if (parsed.content) {
+                  accumulatedContent += parsed.content;
+                  updateMessage(accumulatedContent);
+                }
+              } catch (e) {
+                console.error("Error parsing chunk:", e);
               }
-              if (parsed.content) {
-                accumulatedContent += parsed.content;
-                updateMessage(accumulatedContent);
-              }
-            } catch (e) {
-              console.error("Error parsing chunk:", e);
             }
           }
-        }
 
           if (done) {
             // Clear any existing timeout
@@ -494,45 +485,29 @@ export default function Chat() {
       }
 
       // Update the existing message instead of creating a new one
-      const assistantResponse = await fetch(
-        `${API_BASE_URL}/chats/${selectedChatId}/messages`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({
-            role: "assistant",
-            content: accumulatedContent,
-            model: selectedModel
-          }),
+      if (clerkUser && token && selectedChatId && selectedChatId > 0) {
+        const assistantResponse = await fetch(
+          `${API_BASE_URL}/chats/${selectedChatId}/messages`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              role: "assistant",
+              content: accumulatedContent,
+              model: selectedModel
+            }),
+          }
+        );
+
+        if (!assistantResponse.ok) {
+          const errData = await assistantResponse.json().catch(() => ({}));
+          console.error("Failed to save assistant message:", errData);
         }
-      );
-
-      if (!assistantResponse.ok) {
-        throw new Error("Failed to add AI message");
       }
 
-      // Get the database ID and update the message
-      const savedMessage = await assistantResponse.json();
-      console.log('Saved message response (handleSend):', savedMessage, 'tempMessageId:', tempMessageId);
-      if (savedMessage.id) {
-        setMessages(prev => {
-          const updated = prev.map(msg => {
-            if (msg.id === tempMessageId) {
-              console.log('Updating message ID from', msg.id, 'to', savedMessage.id.toString());
-              return { ...msg, id: savedMessage.id.toString() };
-            }
-            return msg;
-          });
-          return updated;
-        });
-      }
-
-      // Clear streaming state
-      setStreamingMessageId(undefined);
-      
       // Update cache with new messages
       if (selectedChatId) {
         setMessages(currentMessages => {
@@ -586,6 +561,8 @@ export default function Chat() {
     if (!lastUserMessage) return;
 
     try {
+      const token = clerkUser ? await getToken() : null;
+      
       // Use the database ID for deletion
       const dbMessageId = messageToRegenerate.id;
       
@@ -720,12 +697,12 @@ export default function Chat() {
               try {
                 const parsed = JSON.parse(data);
                 if (parsed.detail) {
-                  const errMsg:string = parsed.detail;
+                  const errMsg: string = parsed.detail;
                   accumulatedContent = errMsg;
                   updateMessage(errMsg);
                   setStreamingMessageId(undefined);
                   // Cancel further reading
-                  reader?.cancel().catch(()=>{});
+                  reader?.cancel().catch(() => {});
                   break;
                 }
                 if (parsed.content) {
@@ -757,88 +734,85 @@ export default function Chat() {
         updateMessage(accumulatedContent);
       }
 
-      // Update the message in the database
-      const assistantResponse = await fetch(
-        `${API_BASE_URL}/chats/${selectedChatId}/messages`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({
-            role: "assistant",
-            content: accumulatedContent,
-            model: model || selectedModel
-          }),
-        }
-      );
-
-      if (!assistantResponse.ok) {
-        throw new Error("Failed to update AI message");
-      }
-
-      // Get the database ID and update the message
-      const savedMessage = await assistantResponse.json();
-      if (savedMessage.id) {
-        setMessages(prev => 
-          prev.map(msg => {
-            if (msg.id === tempMessageId) {
-              return { ...msg, id: savedMessage.id.toString() };
-            }
-            return msg;
-          })
+      // Store the new assistant message
+      if (clerkUser && token && selectedChatId && selectedChatId > 0) {
+        const assistantResponse = await fetch(
+          `${API_BASE_URL}/chats/${selectedChatId}/messages`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              role: "assistant",
+              content: accumulatedContent,
+              model: model || selectedModel
+            }),
+          }
         );
+
+        if (!assistantResponse.ok) {
+          const errData = await assistantResponse.json().catch(() => ({}));
+          console.error("Failed to save regenerated message:", errData);
+        }
       }
 
-      // Clear streaming state
-      setStreamingMessageId(undefined);
-      
-      // Refresh chat list
-      setShouldRefreshChats(true);
+      // Update cache with new messages
+      if (selectedChatId) {
+        setMessages(currentMessages => {
+          chatCache.cacheMessages(selectedChatId, currentMessages);
+          return currentMessages;
+        });
+        setShouldRefreshChats(true);
+      }
     } catch (error) {
       console.error("Error in regeneration:", error);
-      setStreamingMessageId(undefined);
     } finally {
       setIsLoading(false);
+      setStreamingMessageId(undefined);
     }
   };
 
   const handleFork = async (messageId: string) => {
-    if (!selectedChatId || !user || !token) return;
+    const token = clerkUser ? await getToken() : null;
+    if (!selectedChatId || !clerkUser || !token) return;
 
     try {
       // Create a new chat
-      const newChatResponse = await fetch(`${API_BASE_URL}/chats`, {
+      const newChatResponse = await fetch(`${API_BASE_URL}/chats/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           title: `Fork of ${selectedChat?.title || 'Chat'}`,
           model: selectedModel,
-          user_id: user.id
+          user_id: clerkUser.id
         }),
       });
 
       if (!newChatResponse.ok) {
-        const errorData = await newChatResponse.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Failed to create new chat");
+        throw new Error("Failed to create new chat");
       }
 
       const newChat = await newChatResponse.json();
 
-      // Get all messages up to the fork point
-      const messagesToCopy = messages.slice(0, messages.findIndex(msg => msg.id.toString() === messageId) + 1);
+      // Find the index of the message to fork from
+      const messageIndex = messages.findIndex(msg => msg.id.toString() === messageId);
+      if (messageIndex === -1) return;
 
-      // Copy messages to the new chat
+      // Copy messages up to and including the selected message
+      const messagesToCopy = messages.slice(0, messageIndex + 1);
+
+      // Add messages to the new chat
       for (const message of messagesToCopy) {
-        const messageResponse = await fetch(`${API_BASE_URL}/chats/${newChat.id}/messages`, {
+        await fetch(`${API_BASE_URL}/chats/${newChat.id}/messages`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             role: message.role,
@@ -846,16 +820,10 @@ export default function Chat() {
             model: message.model || selectedModel
           }),
         });
-
-        if (!messageResponse.ok) {
-          throw new Error("Failed to copy message to new chat");
-        }
       }
 
-      // Add to cache and select the new chat
-      chatCache.addNewChat(newChat);
+      // Navigate to the new chat
       setSelectedChatId(newChat.id);
-      // Refresh chat list
       setShouldRefreshChats(true);
     } catch (error) {
       console.error("Error forking chat:", error);
@@ -868,6 +836,10 @@ export default function Chat() {
 
   const handleSelectChat = (chatId: number | null) => {
     setSelectedChatId(chatId);
+    setMessages([]);
+    if (chatId) {
+      fetchChatMessages(chatId);
+    }
     if (isMobile) {
       setMobileSidebarOpen(false);
     }
@@ -936,14 +908,14 @@ export default function Chat() {
                 borderRadius: '6px',
                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
               }}
-              title={user ? (user.has_api_key ? 'API Key Set' : 'No API Key Set') : (apiKey ? 'API Key Set' : 'No API Key Set')}
+              title={clerkUser ? (apiKey ? 'API Key Set' : 'No API Key Set') : (apiKey ? 'API Key Set' : 'Guest Mode - No API Key Required')}
             >
               <div 
                 style={{
                   width: '8px',
                   height: '8px',
                   borderRadius: '50%',
-                  backgroundColor: user ? (user.has_api_key ? '#5B6F56' : '#ef4444') : (apiKey ? '#5B6F56' : '#ef4444'),
+                  backgroundColor: clerkUser ? (apiKey ? '#5B6F56' : '#ef4444') : (apiKey ? '#5B6F56' : '#ef4444'),
                   border: '1px solid #4E342E',
                 }}
               />

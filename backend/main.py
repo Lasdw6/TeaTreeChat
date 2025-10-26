@@ -42,10 +42,11 @@ async def allow_health_check_cors(request: Request, call_next):
 app.include_router(api_router, prefix="/api")
 
 # Database initialization is handled in start.sh script
-# @app.on_event("startup")
-# def init_db():
-#     # Create tables
-#     Base.metadata.create_all(bind=engine)
+# Automatically create/update tables on startup (dev only)
+@app.on_event("startup")
+def init_db():
+    # For SQLite, drop existing file manually if schema changed
+    Base.metadata.create_all(bind=engine)
 
 # Health check endpoint
 @app.get("/")

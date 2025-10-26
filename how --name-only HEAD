@@ -1,0 +1,23 @@
+warning: in the working copy of 'backend/app/api/routes/chat.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/api/routes/user.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/models/user.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/main.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/requirements.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/src/app/chat/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/src/app/layout.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/src/app/settings/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/src/components/Chat.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/src/components/ChatList.tsx', LF will be replaced by CRLF the next time Git touches it
+backend/app/api/routes/chat.py
+backend/app/api/routes/user.py
+backend/app/models/user.py
+backend/main.py
+backend/requirements.txt
+frontend/package-lock.json
+frontend/package.json
+frontend/src/app/AuthProvider.tsx
+frontend/src/app/chat/page.tsx
+frontend/src/app/layout.tsx
+frontend/src/app/settings/page.tsx
+frontend/src/components/Chat.tsx
+frontend/src/components/ChatList.tsx

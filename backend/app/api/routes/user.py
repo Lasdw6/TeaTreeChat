@@ -7,13 +7,14 @@ from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
 from passlib.context import CryptContext
 from jose import jwt, JWTError
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer
 from fastapi import Security
 from datetime import datetime
 from ...models.chat import Chat, MessageDB
 from cryptography.fernet import Fernet
 import os
 import re
+from sqlalchemy.exc import IntegrityError
 
 router = APIRouter()
 
@@ -71,24 +72,39 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/user/login")
+bearer_scheme = HTTPBearer(auto_error=False)
 
-def get_current_user(token: str = Security(oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
-    user = db.query(User).filter(User.id == int(user_id)).first()
-    if user is None:
-        raise credentials_exception
+def get_current_user(
+    credentials = Security(bearer_scheme),
+    db: Session = Depends(get_db),
+):
+    from ...core.clerk import verify_clerk_token
+    
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Verify Clerk token
+    session = verify_clerk_token(credentials.credentials)
+    clerk_id = session["user_id"]  # Clerk user ID
+
+    # Try to find local user row
+    user = db.query(User).filter(User.external_id == clerk_id).first()
+    if not user:
+        # Create user lazily from Clerk session data
+        user = User(
+            external_id=clerk_id,
+            name="Anonymous User",
+            email=session.get("email") or f"user-{clerk_id}@clerk.local"
+        )
+        db.add(user)
+        try:
+            db.commit()
+        except IntegrityError:
+            # Another request inserted the same external_id concurrently
+            db.rollback()
+            user = db.query(User).filter(User.external_id == clerk_id).first()
+        else:
+            db.refresh(user)
     return user
 
 class UserCreate(BaseModel):

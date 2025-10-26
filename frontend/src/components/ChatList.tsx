@@ -22,7 +22,7 @@ import {
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Chat } from '@/types/chat';
-import { useAuth } from '@/app/AuthProvider';
+import { useUser, useAuth, SignedIn, SignedOut, useClerk } from '@clerk/nextjs';
 import chatCache from '@/lib/chatCache';
 import { DEFAULT_MODEL } from '@/lib/constants';
 
@@ -42,8 +42,54 @@ interface ChatListProps {
   onRefresh?: () => void;
 }
 
+const FIXED_WELCOME_DATE = '2024-01-01T00:00:00.000Z';
+
+const createWelcomeChat = (): import('@/types/chat').Chat => ({
+  id: -1,
+  title: 'Welcome',
+  created_at: FIXED_WELCOME_DATE,
+  message_count: WELCOME_MESSAGES.length,
+  last_message: WELCOME_MESSAGES[WELCOME_MESSAGES.length - 1].content,
+  last_message_at: FIXED_WELCOME_DATE,
+});
+
+const WELCOME_MESSAGES: import('@/types/chat').Message[] = [
+  {
+    id: 'welcome_1',
+    role: 'assistant',
+    content: '👋 Welcome to TeaTree Chat!\n\nTo get started, you can chat as a guest and try out the app with up to 8 messages per day. Your chats are stored locally and will be saved to your account if you sign up.',
+    createdAt: new Date(FIXED_WELCOME_DATE),
+  },
+  {
+    id: 'welcome_2',
+    role: 'user',
+    content: 'What happens if I create an account?',
+    createdAt: new Date(FIXED_WELCOME_DATE),
+  },
+  {
+    id: 'welcome_3',
+    role: 'assistant',
+    content: 'Great question! When you create an account, your chats and history will be saved securely to your account, and you can chat without daily limits. You can also add your own API key for more models and higher usage.',
+    createdAt: new Date(FIXED_WELCOME_DATE),
+  },
+  {
+    id: 'welcome_4',
+    role: 'user',
+    content: 'Can I migrate my guest chats if I sign up later?',
+    createdAt: new Date(FIXED_WELCOME_DATE),
+  },
+  {
+    id: 'welcome_5',
+    role: 'assistant',
+    content: 'Yes! When you sign up or log in, your guest chats will be automatically imported into your new account so you never lose your conversation history.',
+    createdAt: new Date(FIXED_WELCOME_DATE),
+  },
+];
+
 export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh = false, onRefresh }: ChatListProps) {
-  const { user, token, refreshUser, apiKey } = useAuth();
+  const { user } = useUser();
+  const { getToken } = useAuth();
+  const { openSignIn, openSignUp } = useClerk();
   const [chats, setChats] = useState<Chat[]>([]);
   const [error, setError] = useState<string | null>(null);
   
@@ -63,13 +109,13 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   const [isRenameChatDialogOpen, setIsRenameChatDialogOpen] = useState(false);
   const [renameChatId, setRenameChatId] = useState<number | null>(null);
   const [renameChatTitle, setRenameChatTitle] = useState('');
-  const hasKey = !!(user?.has_api_key || apiKey || (typeof window !== 'undefined' && localStorage.getItem('apiKey')));
+  const hasKey = !!(typeof window !== 'undefined' && localStorage.getItem('apiKey'));
 
   useEffect(() => {
-    if (user && token) {
+    if (user) {
       fetchChats();
     }
-  }, [user, token]);
+  }, [user]);
 
   useEffect(() => {
     if (chats.length > 0 && !selectedChatId) {
@@ -93,6 +139,89 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
     }
   }, [shouldRefresh, onRefresh]);
 
+  // On mount: if no user (guest) and no cached chats, create welcome chat
+  useEffect(() => {
+    if (!user) {
+      const cached = chatCache.getCachedChats();
+      if (cached.length === 0) {
+        console.log('[ChatList] Creating local welcome chat for guest');
+        const welcomeChat = createWelcomeChat();
+        chatCache.addNewChat(welcomeChat);
+        chatCache.cacheMessages(welcomeChat.id, WELCOME_MESSAGES as any);
+        setChats([welcomeChat]);
+        onSelectChat(welcomeChat.id);
+      } else {
+        setChats(cached);
+      }
+    }
+  }, [user]);
+
+  // When user logs in, migrate local guest chats to backend
+  useEffect(() => {
+    const migrateGuestChats = async () => {
+      if (!user) return;
+      const token = await getToken();
+      if (!token) return;
+
+      const cachedChats = chatCache.getCachedChats();
+      const guestChats = cachedChats.filter(c => c.id < 0);
+      if (guestChats.length === 0) return;
+
+      console.log(`[ChatList] Migrating ${guestChats.length} guest chat(s) to backend`);
+
+      for (const guestChat of guestChats) {
+        try {
+          // Create chat in backend
+          const createResp = await fetch(`${API_BASE_URL}/chats/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              title: guestChat.title,
+              user_id: user.id,
+              model: DEFAULT_MODEL,
+            }),
+          });
+          if (!createResp.ok) throw new Error('Failed to create chat');
+          const newChat = await createResp.json();
+
+          // Migrate messages
+          const cached = chatCache.getCachedChatWithMessages(guestChat.id);
+          if (cached?.messages) {
+            for (const msg of cached.messages) {
+              await fetch(`${API_BASE_URL}/chats/${newChat.id}/messages`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  role: msg.role,
+                  content: msg.content,
+                  model: DEFAULT_MODEL,
+                }),
+              });
+            }
+          }
+
+          // Replace local chat id with backend id in cache
+          chatCache.removeChat(guestChat.id);
+          chatCache.addNewChat({ ...newChat });
+          if (cached?.messages) chatCache.cacheMessages(newChat.id, cached.messages);
+        } catch (err) {
+          console.error('Error migrating guest chat', err);
+        }
+      }
+
+      // Refresh chats from API after migration
+      fetchChats();
+    };
+
+    migrateGuestChats();
+  }, [user]);
+
   // Helper function to deduplicate chats by ID
   const deduplicateChats = (chats: Chat[]): Chat[] => {
     const seen = new Set<number>();
@@ -107,7 +236,9 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   };
 
   const fetchChats = async () => {
-    if (!user || !token) return;
+    if (!user) return;
+    
+    const token = await getToken();
     
     // First, load from cache for instant display
     const cachedChats = chatCache.getCachedChats();
@@ -170,7 +301,11 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   };
 
   const handleCreateChat = async () => {
-    if (!newChatTitle.trim() || !user || !token) return;
+    if (!newChatTitle.trim() || !user) return;
+    
+    const token = await getToken();
+    if (!token) return;
+    
     try {
       const response = await fetch(`${API_BASE_URL}/chats/`, {
         method: 'POST',
@@ -207,7 +342,10 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
 
   const handleDeleteChat = async (chatId: number, event: React.MouseEvent) => {
     event.stopPropagation();
+    
+    const token = await getToken();
     if (!token) return;
+    
     try {
       const response = await fetch(`${API_BASE_URL}/chats/${chatId}`, {
         method: 'DELETE',
@@ -236,7 +374,11 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   };
 
   const handleConfirmRename = async () => {
-    if (!renameChatTitle.trim() || !renameChatId || !token) return;
+    if (!renameChatTitle.trim() || !renameChatId) return;
+    
+    const token = await getToken();
+    if (!token) return;
+    
     try {
       const response = await fetch(`${API_BASE_URL}/chats/${renameChatId}`, {
         method: 'PUT',
@@ -487,64 +629,76 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
           maxWidth: '100%',
         }}
       >
-        <Avatar
-          sx={{
-            bgcolor: '#D6BFA3',
-            color: '#4E342E',
-            width: 32,
-            height: 32,
-            fontSize: '1rem',
-            border: '1.5px solid #D6BFA3',
-            boxShadow: '0 1px 2px 0 rgba(91,111,86,0.10)',
-            mb: 0.2,
-          }}
-        >
-          {user && user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-        </Avatar>
-        <Typography
-          variant="subtitle2"
-          sx={{
-            fontWeight: 700,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            color: '#5B6F56',
-            fontSize: '0.95rem',
-            mb: 0.1,
-          }}
-        >
-          {user && user.name ? user.name : user && user.id ? `User ${user.id}` : 'User'}
-        </Typography>
-        <Typography
-          variant="caption"
-          sx={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            display: 'block',
-            color: '#D6BFA3',
-            fontSize: '0.85rem',
-            mb: 0.1,
-          }}
-        >
-          {user && user.email ? user.email : 'No email available'}
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.2 }}>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center',
-            bgcolor: '#D6BFA3',
-            px: 1.5,
-            py: 0.5,
-            borderRadius: 1.5,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }}>
-          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: (hasKey ? '#5B6F56' : '#ef4444'), mr: 0.7 }} />
-            <Typography variant="caption" sx={{ color: '#4E342E', fontWeight: 600, fontSize: '0.75rem' }}>
-            {hasKey ? 'API Key Set' : 'No API Key'}
+        <SignedIn>
+          <Avatar
+            sx={{
+              bgcolor: '#D6BFA3',
+              color: '#4E342E',
+              width: 32,
+              height: 32,
+              fontSize: '1rem',
+              border: '1.5px solid #D6BFA3',
+              boxShadow: '0 1px 2px 0 rgba(91,111,86,0.10)',
+              mb: 0.6,
+            }}
+          >
+            {user && user.firstName ? user.firstName.charAt(0).toUpperCase() : 'U'}
+          </Avatar>
+          <Typography
+            variant="subtitle2"
+            sx={{
+              fontWeight: 700,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              color: '#5B6F56',
+              fontSize: '0.95rem',
+              mb: 0.2,
+            }}
+          >
+            {user && user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'User'}
           </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              display: 'block',
+              color: '#D6BFA3',
+              fontSize: '0.83rem',
+              mb: 0.2,
+            }}
+          >
+            {user && user.primaryEmailAddress ? user.primaryEmailAddress.emailAddress : ''}
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.2 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              bgcolor: '#D6BFA3',
+              px: 1.5,
+              py: 0.5,
+              borderRadius: 1.5,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}>
+            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: (hasKey ? '#5B6F56' : '#ef4444'), mr: 0.7 }} />
+              <Typography variant="caption" sx={{ color: '#4E342E', fontWeight: 600, fontSize: '0.75rem' }}>
+              {hasKey ? 'API Key Set' : 'No API Key'}
+            </Typography>
+            </Box>
           </Box>
-        </Box>
+        </SignedIn>
+        <SignedOut>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, width: '100%' }}>
+            <Button variant="contained" fullWidth sx={{ bgcolor: '#5B6F56', color: '#D6BFA3', textTransform: 'none', fontWeight: 700 }} onClick={() => openSignIn()}>
+              Sign In
+            </Button>
+            <Button variant="outlined" fullWidth sx={{ borderColor: '#D6BFA3', color: '#D6BFA3', textTransform: 'none', fontWeight: 700 }} onClick={() => openSignUp()}>
+              Sign Up
+            </Button>
+          </Box>
+        </SignedOut>
       </Paper>
 
       <Dialog 

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useAuth } from "@/app/AuthProvider";
+import { useUser, useAuth } from "@clerk/nextjs";
 import { Box, Paper, Typography, TextField, Button, Dialog, DialogTitle, DialogContent, DialogActions, Divider, Alert, Snackbar } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useRouter } from 'next/navigation';
@@ -9,7 +9,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import TeaTreeLogo from '@/components/TeaTreeLogo';
 
 export default function SettingsPage() {
-  const { apiKey, setApiKey, deleteAccount, logout, user, refreshUser } = useAuth();
+  const { user } = useUser();
+  const { signOut, getToken } = useAuth();
   const [keyInput, setKeyInput] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -18,18 +19,22 @@ export default function SettingsPage() {
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [isClient, setIsClient] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(false);
   const theme = useTheme();
   const router = useRouter();
 
   // Handle client-side hydration
   useEffect(() => {
     setIsClient(true);
+    // Check if user has API key from localStorage
+    const apiKey = localStorage.getItem('apiKey');
+    setHasApiKey(!!apiKey);
   }, []);
 
   useEffect(() => {
     // Show "..." if user has API key set, otherwise empty
-    setKeyInput(user?.has_api_key ? "••••••••••••••••••••••••••••••••" : "");
-  }, [user]);
+    setKeyInput(hasApiKey ? "••••••••••••••••••••••••••••••••" : "");
+  }, [hasApiKey]);
 
   const handleSaveKey = async () => {
     // Don't save if the input is just the placeholder dots
@@ -39,15 +44,14 @@ export default function SettingsPage() {
 
     setSaving(true);
     try {
-      await setApiKey(keyInput.trim());
-      await refreshUser();
+      // Save API key to localStorage
+      localStorage.setItem('apiKey', keyInput.trim());
+      setHasApiKey(true);
       setSnackbarSeverity('success');
       setSnackbarMessage('API key saved successfully!');
       setSnackbarOpen(true);
       // Reset to placeholder if user has a key
-      if (user?.has_api_key) {
-        setKeyInput("••••••••••••••••••••••••••••••••");
-      }
+      setKeyInput("••••••••••••••••••••••••••••••••");
     } catch (error: any) {
       console.error('Error saving API key:', error);
       setSnackbarSeverity('error');
@@ -62,19 +66,43 @@ export default function SettingsPage() {
   const handleDelete = async () => {
     console.log('handleDelete called');
     setDeleting(true);
-    await deleteAccount();
-    setDeleting(false);
-    setDialogOpen(false);
-    router.push('/chat');
+    
+    try {
+      const token = await getToken();
+      if (token) {
+        // Call backend to delete account
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/user/delete`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Failed to delete account');
+      }
+      
+      // Clear local storage
+      localStorage.clear();
+      
+      // Sign out from Clerk
+      await signOut();
+      
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      setSnackbarSeverity('error');
+      setSnackbarMessage('Failed to delete account');
+      setSnackbarOpen(true);
+    } finally {
+      setDeleting(false);
+      setDialogOpen(false);
+      router.push('/chat');
+    }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     router.push('/chat');
   };
 
   // Calculate hasKey in a hydration-safe way
-  const hasKey = !!(user?.has_api_key || apiKey || (isClient && localStorage.getItem('apiKey')));
+  const hasKey = hasApiKey;
 
   const handleSnackbarClose = (_?: any, reason?: string) => {
     if (reason === 'clickaway') return;
@@ -134,7 +162,7 @@ export default function SettingsPage() {
           onChange={e => setKeyInput(e.target.value)}
           fullWidth
           margin="normal"
-          placeholder={user?.has_api_key ? "API key is set" : "sk-or-..."}
+          placeholder={hasApiKey ? "API key is set" : "sk-or-..."}
           InputLabelProps={{ style: { color: theme.palette.text.secondary } }}
           InputProps={{ style: { color: theme.palette.primary.contrastText, background: 'rgba(255,255,255,0.06)', borderRadius: 2 } }}
           sx={{ mb: 2 }}
@@ -199,21 +227,35 @@ export default function SettingsPage() {
           open={dialogOpen} 
           onClose={() => setDialogOpen(false)}
           PaperProps={{
-            style: {
-              backgroundColor: '#D6BFA3',
-              color: '#4E342E',
-              borderRadius: '16px'
+            sx: {
+              bgcolor: '#4E342E',
+              color: '#D6BFA3',
+              borderRadius: 3,
+              boxShadow: '0 4px 16px 0 rgba(91,111,86,0.25)'
             }
           }}
         >
-          <DialogTitle sx={{ fontWeight: 'bold' }}>Delete Account</DialogTitle>
+          <DialogTitle sx={{ color: '#D6BFA3', fontWeight: 700 }}>Delete Account</DialogTitle>
           <DialogContent>
-            <Typography>Are you sure you want to delete your account? This action cannot be undone.</Typography>
+            <Typography>
+              Are you sure you want to delete your account? This action cannot be undone.
+            </Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDialogOpen(false)} disabled={deleting} sx={{ color: '#4E342E' }}>Cancel</Button>
-            <Button onClick={handleDelete} color="error" disabled={deleting} sx={{ color: '#ef4444' }}>
-              {deleting ? "Deleting..." : "Delete"}
+            <Button onClick={() => setDialogOpen(false)} sx={{ color: '#9ca3af' }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleDelete} 
+              color="error" 
+              variant="contained"
+              disabled={deleting}
+              sx={{
+                bgcolor: '#ef4444',
+                '&:hover': { bgcolor: '#dc2626' }
+              }}
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogActions>
         </Dialog>

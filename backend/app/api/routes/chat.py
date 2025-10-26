@@ -11,7 +11,7 @@ import traceback
 import sys
 import shutil
 import stat
-from datetime import datetime
+from datetime import datetime, date
 from typing import List, Dict, Any, Optional
 from ...models.chat import Message, ChatRequest, ChatResponse, Chat, MessageDB, User
 from ...services.openrouter import generate_chat_completion
@@ -30,7 +30,7 @@ logger = logging.getLogger("chat_router")
 class ChatCreate(BaseModel):
     title: str
     model: str = "gpt-3.5-turbo"
-    user_id: int
+    # user_id is not needed; current_user is derived from auth
 
 class MessageCreate(BaseModel):
     id: Optional[int] = None
@@ -634,4 +634,40 @@ def delete_messages_after_regeneration(chat_id: int, message_id: int, db: Sessio
     except Exception as e:
         db.rollback()
         logger.error(f"Error deleting messages: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Demo API key for guest mode (set in server .env)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+# In-memory daily usage counter for guests
+guest_usage: Dict[str, int] = {}
+
+@router.post("/guest/completions")
+async def guest_completions(request: Request):
+    if not OPENROUTER_API_KEY:
+        raise HTTPException(status_code=500, detail="Server API key not configured.")
+    # Rate limit by IP per day
+    ip = request.client.host
+    key = f"{ip}:{date.today()}"
+    used = guest_usage.get(key, 0)
+    if used >= 8:
+        raise HTTPException(status_code=429, detail="Guest daily limit reached. Please sign up for unlimited access.")
+    guest_usage[key] = used + 1
+    # Parse chat request body
+    body = await request.json()
+    chat_req = ChatRequest(**body)
+    # Stream response if requested
+    if chat_req.stream:
+        return EventSourceResponse(
+            stream_chat_completion(chat_req, OPENROUTER_API_KEY),
+            media_type="text/event-stream"
+        )
+    # Non-streaming: accumulate full content
+    full_response = ""
+    async for chunk in generate_chat_completion(chat_req, OPENROUTER_API_KEY):
+        if "choices" in chunk and chunk["choices"]:
+            choice = chunk["choices"][0]
+            if "delta" in choice and "content" in choice["delta"]:
+                full_response += choice["delta"]["content"]
+            elif "message" in choice and "content" in choice["message"]:
+                full_response = choice["message"]["content"]
+    return {"content": full_response} 
