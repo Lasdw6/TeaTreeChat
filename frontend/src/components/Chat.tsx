@@ -15,7 +15,13 @@ import { DEFAULT_MODEL, APP_NAME } from '@/lib/constants';
 import useMediaQuery from '@/hooks/useMediaQuery';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-console.log('DEFAULT_MODEL defined as:', DEFAULT_MODEL);
+
+// Log configuration on module load for debugging
+if (typeof window !== 'undefined') {
+  console.log('[Chat] API_BASE_URL:', API_BASE_URL);
+  console.log('[Chat] DEFAULT_MODEL:', DEFAULT_MODEL);
+  console.log('[Chat] NEXT_PUBLIC_API_URL env:', process.env.NEXT_PUBLIC_API_URL || '(not set)');
+}
 
 interface Message {
   id: string;

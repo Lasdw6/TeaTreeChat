@@ -66,6 +66,8 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider
+      // Don't set domain or proxyUrl - use Clerk's default domain
+      // This prevents Clerk from trying to use clerk.askteatree.chat
       appearance={{
         variables: {
           colorPrimary: '#5B6F56',

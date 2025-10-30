@@ -1,16 +1,52 @@
 import { ChatRequest, ChatResponse, Message, Model, StreamingChunk } from '@/types/chat';
 import chatCache from './chatCache';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+// Get API URL from environment or default to localhost for development
+const getApiBaseUrl = () => {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  
+  // In production, ensure we have a valid URL (not localhost)
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    if (!envUrl || envUrl.includes('localhost')) {
+      console.error('[API] ERROR: NEXT_PUBLIC_API_URL is not set or points to localhost in production!');
+      console.error('[API] Please set NEXT_PUBLIC_API_URL in your Vercel environment variables to your Render backend URL (e.g., https://your-app.onrender.com/api)');
+      // Return empty to prevent requests, but don't crash the app
+      return '';
+    }
+  }
+  
+  return envUrl || 'http://localhost:8000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+// Log API URL on module load for debugging
+if (typeof window !== 'undefined') {
+  console.log('[API] API_BASE_URL configured as:', API_BASE_URL);
+  console.log('[API] NEXT_PUBLIC_API_URL env var:', process.env.NEXT_PUBLIC_API_URL || '(not set, using default)');
+  console.log('[API] Current hostname:', window.location.hostname);
+  
+  // Warn if using localhost in production
+  if (API_BASE_URL.includes('localhost') && window.location.hostname !== 'localhost') {
+    console.warn('[API] WARNING: Using localhost API URL in production. This will cause ERR_NAME_NOT_RESOLVED errors.');
+  }
+}
 
 // Function to ping the server and wake it up if sleeping
 export async function pingServer(): Promise<boolean> {
+  // Don't ping if API_BASE_URL is invalid (empty string from error above)
+  if (!API_BASE_URL) {
+    console.error('[API] Cannot ping server: API_BASE_URL is not configured correctly');
+    return false;
+  }
+  
   try {
-    console.log('Pinging server to wake it up...');
+    const healthUrl = `${API_BASE_URL}/health`;
+    console.log('[API] Pinging server at:', healthUrl);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
-    const response = await fetch(`${API_BASE_URL}/health`, {
+    const response = await fetch(healthUrl, {
       method: 'GET',
       signal: controller.signal,
       headers: {
@@ -29,9 +65,24 @@ export async function pingServer(): Promise<boolean> {
     }
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      console.error('Server ping timed out - server may be sleeping');
+      console.error('[API] Server ping timed out - server may be sleeping');
+    } else if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      const isDnsError = error.message.includes('ERR_NAME_NOT_RESOLVED') || error.message.includes('getaddrinfo ENOTFOUND');
+      if (isDnsError) {
+        console.error('[API] DNS resolution failed. This usually means:');
+        console.error('[API] 1. NEXT_PUBLIC_API_URL is set to an incorrect/invalid URL');
+        console.error('[API] 2. The backend hostname does not exist');
+        console.error('[API] 3. In Vercel, ensure NEXT_PUBLIC_API_URL is set in Environment Variables');
+        console.error('[API] Current API_BASE_URL:', API_BASE_URL);
+      } else {
+        console.error('[API] Failed to fetch from server. Check:', {
+          url: `${API_BASE_URL}/health`,
+          error: error.message,
+          hint: 'Is the backend server running? Is NEXT_PUBLIC_API_URL correct?'
+        });
+      }
     } else {
-      console.error('Failed to ping server:', error);
+      console.error('[API] Failed to ping server:', error);
     }
     return false;
   }
