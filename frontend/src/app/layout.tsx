@@ -64,14 +64,16 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // Only use custom domain if explicitly configured
+  // To use custom domain: set NEXT_PUBLIC_CLERK_DOMAIN=askteatree.chat in Vercel
+  // IMPORTANT: Also remove any satellite domains from Clerk Dashboard if you want to use default domain
+  const clerkDomain = process.env.NEXT_PUBLIC_CLERK_DOMAIN && process.env.NEXT_PUBLIC_CLERK_DOMAIN !== ''
+    ? process.env.NEXT_PUBLIC_CLERK_DOMAIN
+    : undefined;
+
   return (
     <ClerkProvider
-      // Explicitly use Clerk's default domain if custom domain is not configured
-      // To use custom domain: set NEXT_PUBLIC_CLERK_DOMAIN=askteatree.chat in Vercel
-      // And complete DNS setup in Clerk Dashboard first
-      {...(process.env.NEXT_PUBLIC_CLERK_DOMAIN && process.env.NEXT_PUBLIC_CLERK_DOMAIN !== '' 
-        ? { domain: process.env.NEXT_PUBLIC_CLERK_DOMAIN } 
-        : { domain: null })}
+      {...(clerkDomain ? { domain: clerkDomain } : {})}
       appearance={{
         variables: {
           colorPrimary: '#5B6F56',
