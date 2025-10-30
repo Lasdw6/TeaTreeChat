@@ -66,8 +66,12 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider
-      // Don't set domain or proxyUrl - use Clerk's default domain
-      // This prevents Clerk from trying to use clerk.askteatree.chat
+      // Explicitly use Clerk's default domain if custom domain is not configured
+      // To use custom domain: set NEXT_PUBLIC_CLERK_DOMAIN=askteatree.chat in Vercel
+      // And complete DNS setup in Clerk Dashboard first
+      {...(process.env.NEXT_PUBLIC_CLERK_DOMAIN && process.env.NEXT_PUBLIC_CLERK_DOMAIN !== '' 
+        ? { domain: process.env.NEXT_PUBLIC_CLERK_DOMAIN } 
+        : { domain: null })}
       appearance={{
         variables: {
           colorPrimary: '#5B6F56',

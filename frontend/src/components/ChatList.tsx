@@ -640,64 +640,64 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         }}
       >
         <SignedIn>
-          <Avatar
-            sx={{
-              bgcolor: '#D6BFA3',
-              color: '#4E342E',
-              width: 32,
-              height: 32,
-              fontSize: '1rem',
-              border: '1.5px solid #D6BFA3',
-              boxShadow: '0 1px 2px 0 rgba(91,111,86,0.10)',
+        <Avatar
+          sx={{
+            bgcolor: '#D6BFA3',
+            color: '#4E342E',
+            width: 32,
+            height: 32,
+            fontSize: '1rem',
+            border: '1.5px solid #D6BFA3',
+            boxShadow: '0 1px 2px 0 rgba(91,111,86,0.10)',
               mb: 0.6,
-            }}
-          >
+          }}
+        >
             {user && user.firstName ? user.firstName.charAt(0).toUpperCase() : 'U'}
-          </Avatar>
-          <Typography
-            variant="subtitle2"
-            sx={{
-              fontWeight: 700,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              color: '#5B6F56',
-              fontSize: '0.95rem',
+        </Avatar>
+        <Typography
+          variant="subtitle2"
+          sx={{
+            fontWeight: 700,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            color: '#5B6F56',
+            fontSize: '0.95rem',
               mb: 0.2,
-            }}
-          >
+          }}
+        >
             {user && user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'User'}
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={{
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              display: 'block',
-              color: '#D6BFA3',
+        </Typography>
+        <Typography
+          variant="caption"
+          sx={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            display: 'block',
+            color: '#D6BFA3',
               fontSize: '0.83rem',
               mb: 0.2,
-            }}
-          >
+          }}
+        >
             {user && user.primaryEmailAddress ? user.primaryEmailAddress.emailAddress : ''}
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            bgcolor: '#D6BFA3',
+            px: 1.5,
+            py: 0.5,
+            borderRadius: 1.5,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}>
+          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: (hasKey ? '#5B6F56' : '#ef4444'), mr: 0.7 }} />
+            <Typography variant="caption" sx={{ color: '#4E342E', fontWeight: 600, fontSize: '0.75rem' }}>
+            {hasKey ? 'API Key Set' : 'No API Key'}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.2 }}>
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center',
-              bgcolor: '#D6BFA3',
-              px: 1.5,
-              py: 0.5,
-              borderRadius: 1.5,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-            }}>
-            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: (hasKey ? '#5B6F56' : '#ef4444'), mr: 0.7 }} />
-              <Typography variant="caption" sx={{ color: '#4E342E', fontWeight: 600, fontSize: '0.75rem' }}>
-              {hasKey ? 'API Key Set' : 'No API Key'}
-            </Typography>
-            </Box>
           </Box>
+        </Box>
         </SignedIn>
         <SignedOut>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, width: '100%' }}>

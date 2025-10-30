@@ -73,7 +73,7 @@ export default function SettingsPage() {
       setSnackbarMessage('API key saved successfully!');
       setSnackbarOpen(true);
       // Reset to placeholder if user has a key
-      setKeyInput("••••••••••••••••••••••••••••••••");
+        setKeyInput("••••••••••••••••••••••••••••••••");
     } catch (error: any) {
       console.error('Error saving API key:', error);
       setSnackbarSeverity('error');
@@ -112,9 +112,9 @@ export default function SettingsPage() {
       setSnackbarMessage('Failed to delete account');
       setSnackbarOpen(true);
     } finally {
-      setDeleting(false);
-      setDialogOpen(false);
-      router.push('/chat');
+    setDeleting(false);
+    setDialogOpen(false);
+    router.push('/chat');
     }
   };
 
