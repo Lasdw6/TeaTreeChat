@@ -172,6 +172,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
       for (const guestChat of guestChats) {
         try {
           // Create chat in backend
+          console.log(`[ChatList] Creating chat: ${guestChat.title}`, { API_BASE_URL, token: token ? 'present' : 'missing' });
           const createResp = await fetch(`${API_BASE_URL}/chats/`, {
             method: 'POST',
             headers: {
@@ -180,12 +181,18 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
             },
             body: JSON.stringify({
               title: guestChat.title,
-              user_id: user.id,
               model: DEFAULT_MODEL,
             }),
           });
-          if (!createResp.ok) throw new Error('Failed to create chat');
+          
+          if (!createResp.ok) {
+            const errorText = await createResp.text();
+            console.error(`[ChatList] Failed to create chat. Status: ${createResp.status}`, errorText);
+            throw new Error(`Failed to create chat: ${createResp.status} - ${errorText}`);
+          }
+          
           const newChat = await createResp.json();
+          console.log(`[ChatList] Created chat successfully:`, newChat);
 
           // Migrate messages
           const cached = chatCache.getCachedChatWithMessages(guestChat.id);
@@ -211,7 +218,11 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
           chatCache.addNewChat({ ...newChat });
           if (cached?.messages) chatCache.cacheMessages(newChat.id, cached.messages);
         } catch (err) {
-          console.error('Error migrating guest chat', err);
+          console.error('[ChatList] Error migrating guest chat:', err);
+          if (err instanceof TypeError && err.message.includes('fetch')) {
+            console.error('[ChatList] Network error - is the backend running?', API_BASE_URL);
+          }
+          // Continue with other chats even if one fails
         }
       }
 
@@ -262,7 +273,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
     
     try {
       console.log('Fetching fresh chat data from API');
-      const response = await fetch(`${API_BASE_URL}/chats?user_id=${user.id}`, {
+      const response = await fetch(`${API_BASE_URL}/chats`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch chats');
@@ -315,7 +326,6 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
         },
         body: JSON.stringify({ 
           title: newChatTitle,
-          user_id: user.id,
           model: DEFAULT_MODEL
         }),
       });

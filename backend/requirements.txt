@@ -18,3 +18,4 @@ psycopg2-binary==2.9.10
 gunicorn==23.0.0
 email-validator==2.2.0
 clerk-sdk==0.2.2
+supabase==2.22.2

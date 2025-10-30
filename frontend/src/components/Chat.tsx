@@ -201,12 +201,18 @@ export default function Chat() {
       }
 
       // Fetch fresh data from API
-      console.log(`Fetching fresh data for chat ${chatId} from API`);
       const token = await getToken();
+      console.log(`[Chat] Fetching fresh data for chat ${chatId} from API`, { API_BASE_URL, token: token ? 'present' : 'missing' });
       const response = await fetch(`${API_BASE_URL}/chats/${chatId}/messages`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (!response.ok) throw new Error('Failed to fetch messages');
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Chat] Failed to fetch messages. Status: ${response.status}`, errorText);
+        throw new Error(`Failed to fetch messages: ${response.status} - ${errorText}`);
+      }
+      
       const data = await response.json();
       
       console.log('Fetched fresh messages from API:', data);
@@ -222,16 +228,26 @@ export default function Chat() {
 
       // Fetch chat details if we don't have them cached or they're stale
       if (!cachedChat || shouldRefresh) {
-        const chatResponse = await fetch(`${API_BASE_URL}/chats/${chatId}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined
-        });
-        if (chatResponse.ok) {
-          const chatData = await chatResponse.json();
-          setSelectedChat(chatData);
+        try {
+          const chatResponse = await fetch(`${API_BASE_URL}/chats/${chatId}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+          });
+          if (chatResponse.ok) {
+            const chatData = await chatResponse.json();
+            setSelectedChat(chatData);
+          } else {
+            console.warn(`[Chat] Failed to fetch chat details. Status: ${chatResponse.status}`);
+          }
+        } catch (chatError) {
+          console.error('[Chat] Error fetching chat details:', chatError);
+          // Continue with messages even if chat details fail
         }
       }
     } catch (error) {
-      console.error('Error fetching chat messages:', error);
+      console.error('[Chat] Error fetching chat messages:', error);
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error('[Chat] Network error - is the backend running?', API_BASE_URL);
+      }
       // If we have cached messages and API fails, keep using them
       const cachedChat = chatCache.getCachedChatWithMessages(chatId);
       if (cachedChat?.messages && messages.length === 0) {
@@ -268,7 +284,18 @@ export default function Chat() {
       combinedContent = content;
     }
 
-    if (!combinedContent.trim() || !selectedChatId) return;
+    if (!combinedContent.trim()) {
+      console.warn("[Chat] Cannot send empty message");
+      return;
+    }
+    
+    if (!selectedChatId) {
+      console.error("[Chat] No chat selected. Cannot send message.");
+      // Create a new chat if none is selected
+      // This will be handled by ChatList component, but show error for now
+      alert("Please select a chat or create a new one to send messages.");
+      return;
+    }
 
     let tempMessageId: string | undefined = undefined;
     setIsLoading(true);
@@ -369,9 +396,24 @@ export default function Chat() {
       });
 
       if (!aiResponse.ok) {
-        const errorData = await aiResponse.json().catch(() => ({}));
-        const errMsg = errorData.detail || "Failed to get AI response.";
-        console.error("AI Response Error:", errorData);
+        let errorData: any = {};
+        try {
+          const text = await aiResponse.text();
+          errorData = text ? JSON.parse(text) : {};
+        } catch (e) {
+          console.error("Failed to parse error response:", e);
+        }
+        let errMsg = errorData.detail || errorData.message || `Failed to get AI response (${aiResponse.status}).`;
+        
+        // Provide helpful error messages for common errors
+        if (aiResponse.status === 400 && errMsg.includes("API key")) {
+          errMsg = "API key not set. Please go to Settings and add your OpenRouter API key to use AI responses.";
+        } else if (aiResponse.status === 429) {
+          errMsg = "Rate limit exceeded. Please try again later.";
+        }
+        
+        console.error("AI Response Error:", { status: aiResponse.status, errorData, errMsg });
+        
         // Show in UI
         setMessages(prev => [
           ...prev.filter(msg => msg.id !== tempMessageId),
@@ -472,6 +514,8 @@ export default function Chat() {
             }
             // Final update to ensure we have the complete content
             updateMessage(accumulatedContent);
+            // Clear streaming state since we're done
+            setStreamingMessageId(undefined);
             break;
           }
         }
@@ -482,6 +526,8 @@ export default function Chat() {
         }
         // One final update to ensure we have everything
         updateMessage(accumulatedContent);
+        // Always clear streaming state in finally to ensure input is re-enabled
+        setStreamingMessageId(undefined);
       }
 
       // Update the existing message instead of creating a new one

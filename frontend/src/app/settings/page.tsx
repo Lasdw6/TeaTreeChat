@@ -44,7 +44,29 @@ export default function SettingsPage() {
 
     setSaving(true);
     try {
-      // Save API key to localStorage
+      const token = await getToken();
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+      
+      // Save API key to backend database
+      if (token && user) {
+        const response = await fetch(`${API_BASE_URL}/user/me/api_key`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            api_key: keyInput.trim()
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || `Failed to save API key (${response.status})`);
+        }
+      }
+      
+      // Also save API key to localStorage (for guest mode)
       localStorage.setItem('apiKey', keyInput.trim());
       setHasApiKey(true);
       setSnackbarSeverity('success');

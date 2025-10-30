@@ -11,6 +11,7 @@ import traceback
 import sys
 import shutil
 import stat
+import httpx
 from datetime import datetime, date
 from typing import List, Dict, Any, Optional
 from ...models.chat import Message, ChatRequest, ChatResponse, Chat, MessageDB, User
@@ -602,9 +603,89 @@ def get_chat_messages(chat_id: int, db: Session = Depends(get_db), current_user:
 @router.get("/models")
 async def get_models():
     """
-    Get list of available models
+    Get list of available models from OpenRouter API
+    Falls back to static list if API is unavailable
     """
-    return {"models": AVAILABLE_MODELS} 
+    try:
+        # Fetch models dynamically from OpenRouter
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get("https://openrouter.ai/api/v1/models")
+            if response.status_code == 200:
+                data = response.json()
+                models = []
+                
+                # Transform OpenRouter models format to our format
+                for model in data.get("data", []):
+                    # Only include models that support chat completion
+                    model_id = model.get("id", "")
+                    if not model_id:
+                        continue
+                    
+                    # Skip very old or experimental models that might not work well
+                    model_id_lower = model_id.lower()
+                    if any(skip in model_id_lower for skip in ["gpt-3.5", "gpt-3", "claude-1", "claude-2"]):
+                        continue
+                    
+                    name = model.get("name", model_id)
+                    description_parts = []
+                    
+                    # Add context info
+                    context_length = model.get("context_length")
+                    if context_length:
+                        if context_length >= 1000000:
+                            description_parts.append(f"{context_length//1000000}M+ context")
+                        elif context_length >= 1000:
+                            description_parts.append(f"{context_length//1000}K context")
+                        else:
+                            description_parts.append(f"{context_length} context")
+                    
+                    # Add pricing info
+                    pricing = model.get("pricing", {})
+                    prompt_price = pricing.get("prompt")
+                    completion_price = pricing.get("completion")
+                    if prompt_price is not None and completion_price is not None:
+                        # Format prices nicely
+                        prompt_str = f"${prompt_price:.4f}" if prompt_price < 1 else f"${prompt_price:.2f}"
+                        completion_str = f"${completion_price:.4f}" if completion_price < 1 else f"${completion_price:.2f}"
+                        description_parts.append(f"${prompt_str}/${completion_str} per 1M tokens")
+                    
+                    # Check if free
+                    is_free = prompt_price == 0 and completion_price == 0
+                    if is_free:
+                        description_parts.append("- Free")
+                    
+                    description = " • ".join(description_parts) if description_parts else "Available via OpenRouter"
+                    
+                    # Add category tag
+                    tags = []
+                    if is_free:
+                        tags.append("Free")
+                    if "reasoning" in name.lower() or "r1" in model_id.lower():
+                        tags.append("Reasoning")
+                    if any(x in name.lower() for x in ["premium", "pro", "max"]):
+                        tags.append("Premium")
+                    
+                    display_name = name
+                    if tags:
+                        display_name += f" - {' + '.join(tags)}"
+                    
+                    models.append({
+                        "id": model_id,
+                        "name": display_name,
+                        "description": description
+                    })
+                
+                # Sort models: free first, then by name
+                models.sort(key=lambda x: (not x["name"].endswith("Free"), x["name"]))
+                
+                logger.info(f"Fetched {len(models)} models from OpenRouter API")
+                return {"models": models}
+            else:
+                logger.warning(f"OpenRouter API returned status {response.status_code}, using static list")
+                return {"models": AVAILABLE_MODELS}
+    except Exception as e:
+        logger.warning(f"Failed to fetch models from OpenRouter API: {str(e)}, using static list")
+        return {"models": AVAILABLE_MODELS} 
 
 @router.delete("/chats/{chat_id}/messages/regenerate/{message_id}")
 def delete_messages_after_regeneration(chat_id: int, message_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

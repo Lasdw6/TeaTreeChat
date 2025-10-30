@@ -1,34 +1,44 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import OperationalError, DisconnectionError
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Get database URL from environment variable, fallback to SQLite for local development
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./chat.db")
+# Get database URL from Supabase environment variable
+DATABASE_URL = os.getenv("SUPABASE_DATABASE_URL", os.getenv("DATABASE_URL"))
 
-# Handle PostgreSQL URL format (Render provides postgresql://, but SQLAlchemy needs postgresql+psycopg2://)
-if DATABASE_URL.startswith("postgresql://"):
+if not DATABASE_URL:
+    raise RuntimeError("SUPABASE_DATABASE_URL environment variable not set!")
+
+# Handle PostgreSQL URL format (Supabase provides postgresql://, but SQLAlchemy needs postgresql+psycopg2://)
+# For Session mode pooler, use aws-0-REGION format
+if DATABASE_URL.startswith("postgresql://") and "pooler.supabase.com" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+elif DATABASE_URL.startswith("postgresql://") and "db." in DATABASE_URL:
+    # Direct connection (non-pooler), also needs psycopg2
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
 
-# Create engine with appropriate settings
-if DATABASE_URL.startswith("sqlite"):
-    # SQLite configuration for local development
-    engine = create_engine(
-        DATABASE_URL,
-        connect_args={"check_same_thread": False},  # Needed for SQLite
-        echo=False  # Set to False in production
-    )
-else:
-    # PostgreSQL configuration for production
-    engine = create_engine(
-        DATABASE_URL,
-        echo=False,  # Set to False in production
-        pool_size=10,
-        max_overflow=20
-    )
+# Create engine for PostgreSQL (Supabase)
+# Supabase pooler configuration:
+# - Lower pool size (Supabase pooler has limits per user)
+# - Enable pool_pre_ping to check connections before use
+# - Set pool_recycle to reconnect before connections time out
+# - Enable echo for debugging if needed
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,  # Set to False in production
+    pool_size=5,  # Reduced for Supabase pooler limits
+    max_overflow=10,  # Reduced for Supabase
+    pool_pre_ping=True,  # Check connections before using them
+    pool_recycle=300,  # Recycle connections every 5 minutes (Supabase timeout is ~10 min)
+    connect_args={
+        "connect_timeout": 10,
+        "options": "-c statement_timeout=30000"  # 30 second query timeout
+    }
+)
 
 # Create session factory
 SessionLocal = sessionmaker(
@@ -40,10 +50,16 @@ SessionLocal = sessionmaker(
 Base = declarative_base()
 
 # Dependency to get DB session
+# pool_pre_ping=True handles connection validation automatically
 def get_db():
     db = SessionLocal()
     try:
         yield db
+    except (OperationalError, DisconnectionError) as e:
+        # Rollback and close on connection errors
+        db.rollback()
+        db.close()
+        raise
     finally:
         db.close()
 

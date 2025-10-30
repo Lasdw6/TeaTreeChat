@@ -9,12 +9,21 @@ interface ServerStatusLoaderProps {
 }
 
 const ServerStatusLoader: React.FC<ServerStatusLoaderProps> = ({ onServerReady, children }) => {
+  // Track if component has mounted to prevent hydration mismatch
+  const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const maxRetries = 3;
 
   useEffect(() => {
+    // Mark as mounted after hydration
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return; // Don't check until after mount
+    
     const checkServerStatus = async () => {
       try {
         setError(null);
@@ -47,9 +56,10 @@ const ServerStatusLoader: React.FC<ServerStatusLoaderProps> = ({ onServerReady, 
 
     // Start checking server status
     checkServerStatus();
-  }, [retryCount, onServerReady]);
+  }, [retryCount, onServerReady, mounted]);
 
-  if (!isLoading && !error) {
+  // During SSR and before mount, show children to prevent hydration mismatch
+  if (!mounted || (!isLoading && !error)) {
     return <>{children}</>;
   }
 

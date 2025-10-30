@@ -1,4 +1,3 @@
-from clerk import Clerk
 import os
 from fastapi import HTTPException, status
 import jwt
@@ -6,8 +5,6 @@ import jwt
 CLERK_SECRET = os.getenv("CLERK_SECRET_KEY")
 if not CLERK_SECRET:
     raise RuntimeError("CLERK_SECRET_KEY environment variable not set!")
-
-clerk_client = Clerk(api_key=CLERK_SECRET)
 
 def verify_clerk_token(token: str):
     """Verify Clerk JWT token and return session data"""
