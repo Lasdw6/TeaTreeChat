@@ -89,109 +89,54 @@ export default function RootLayout({
     throw new Error('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is required');
   }
 
-  const clerkProviderProps = clerkDomain 
-    ? {
-        publishableKey,
-        domain: clerkDomain,
-        isSatellite: true,
-        routerPush: (url: string) => {},
-        routerReplace: (url: string) => {},
-        appearance: {
-          variables: {
-            colorPrimary: '#5B6F56',
-            colorBackground: '#4E342E',
-            colorText: '#D6BFA3',
-            colorInputBackground: '#3a2a22',
-            colorInputText: '#D6BFA3',
-            colorDanger: '#ef4444',
-            colorSuccess: '#5B6F56',
-          },
-          elements: {
-            card: {
-              background: '#4E342E',
-              color: '#D6BFA3',
-              borderRadius: '16px',
-              boxShadow: '0 8px 32px 0 rgba(91,111,86,0.25)',
-            },
-            formButtonPrimary: {
-              background: '#5B6F56',
-              color: '#D6BFA3',
-              fontWeight: 700,
-              borderRadius: '8px',
-              '&:hover': { background: '#466146' },
-            },
-            headerTitle: { color: '#D6BFA3' },
-            headerSubtitle: { color: '#D6BFA3' },
-            socialButtonsBlockButton: {
-              background: '#D6BFA3',
-              color: '#4E342E',
-              fontWeight: 700,
-              borderRadius: '8px',
-              '&:hover': { background: '#bfae8c' },
-            },
-            formFieldInput: {
-              background: '#3a2a22',
-              color: '#D6BFA3',
-              borderRadius: '8px',
-              border: '1.5px solid #D6BFA3',
-            },
-            footerActionText: { color: '#D6BFA3' },
-          },
-        },
-      }
-    : {
-        publishableKey,
-        isSatellite: false,
-        proxyUrl: "",
-        routerPush: (url: string) => {},
-        routerReplace: (url: string) => {},
-        appearance: {
-          variables: {
-            colorPrimary: '#5B6F56',
-            colorBackground: '#4E342E',
-            colorText: '#D6BFA3',
-            colorInputBackground: '#3a2a22',
-            colorInputText: '#D6BFA3',
-            colorDanger: '#ef4444',
-            colorSuccess: '#5B6F56',
-          },
-          elements: {
-            card: {
-              background: '#4E342E',
-              color: '#D6BFA3',
-              borderRadius: '16px',
-              boxShadow: '0 8px 32px 0 rgba(91,111,86,0.25)',
-            },
-            formButtonPrimary: {
-              background: '#5B6F56',
-              color: '#D6BFA3',
-              fontWeight: 700,
-              borderRadius: '8px',
-              '&:hover': { background: '#466146' },
-            },
-            headerTitle: { color: '#D6BFA3' },
-            headerSubtitle: { color: '#D6BFA3' },
-            socialButtonsBlockButton: {
-              background: '#D6BFA3',
-              color: '#4E342E',
-              fontWeight: 700,
-              borderRadius: '8px',
-              '&:hover': { background: '#bfae8c' },
-            },
-            formFieldInput: {
-              background: '#3a2a22',
-              color: '#D6BFA3',
-              borderRadius: '8px',
-              border: '1.5px solid #D6BFA3',
-            },
-            footerActionText: { color: '#D6BFA3' },
-          },
-        },
-      };
+  const appearance = {
+    variables: {
+      colorPrimary: '#5B6F56',
+      colorBackground: '#4E342E',
+      colorText: '#D6BFA3',
+      colorInputBackground: '#3a2a22',
+      colorInputText: '#D6BFA3',
+      colorDanger: '#ef4444',
+      colorSuccess: '#5B6F56',
+    },
+    elements: {
+      card: {
+        background: '#4E342E',
+        color: '#D6BFA3',
+        borderRadius: '16px',
+        boxShadow: '0 8px 32px 0 rgba(91,111,86,0.25)',
+      },
+      formButtonPrimary: {
+        background: '#5B6F56',
+        color: '#D6BFA3',
+        fontWeight: 700,
+        borderRadius: '8px',
+        '&:hover': { background: '#466146' },
+      },
+      headerTitle: { color: '#D6BFA3' },
+      headerSubtitle: { color: '#D6BFA3' },
+      socialButtonsBlockButton: {
+        background: '#D6BFA3',
+        color: '#4E342E',
+        fontWeight: 700,
+        borderRadius: '8px',
+        '&:hover': { background: '#bfae8c' },
+      },
+      formFieldInput: {
+        background: '#3a2a22',
+        color: '#D6BFA3',
+        borderRadius: '8px',
+        border: '1.5px solid #D6BFA3',
+      },
+      footerActionText: { color: '#D6BFA3' },
+    },
+  };
 
   return (
     <ClerkProvider
-      {...clerkProviderProps}
+      publishableKey={publishableKey}
+      {...(clerkDomain ? { domain: clerkDomain, isSatellite: true } : { isSatellite: false, proxyUrl: "" })}
+      appearance={appearance}
     >
       <html lang="en" data-google-analytics-opt-out="">
         <body
