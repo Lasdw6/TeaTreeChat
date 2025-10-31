@@ -64,12 +64,26 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Configure Clerk satellite domain via environment variable
-  // Use a subdomain OTHER than "clerk" (which is reserved)
-  // Options: auth.askteatree.chat, account.askteatree.chat, login.askteatree.chat, etc.
-  // Set NEXT_PUBLIC_CLERK_DOMAIN=auth.askteatree.chat (or your chosen subdomain) in Vercel
-  // Also set NEXT_PUBLIC_CLERK_FRONTEND_API_URL to match your satellite domain
+  // REQUIRED: Set these environment variables in Vercel:
+  // - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY (required) - Get from Clerk Dashboard → API Keys
+  // - CLERK_SECRET_KEY (required for backend) - Get from Clerk Dashboard → API Keys
+  // 
+  // OPTIONAL: For custom domain setup:
+  // - NEXT_PUBLIC_CLERK_DOMAIN - Use a subdomain OTHER than "clerk" (which is reserved)
+  //   Options: auth.askteatree.chat, account.askteatree.chat, login.askteatree.chat, etc.
+  // - NEXT_PUBLIC_CLERK_FRONTEND_API_URL - Should match your satellite domain
+  
   const clerkDomain = process.env.NEXT_PUBLIC_CLERK_DOMAIN || undefined;
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+  // Validate that required environment variables are set (only in production)
+  if (typeof window === 'undefined' && !publishableKey) {
+    console.error('[Clerk] ERROR: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is not set!');
+    console.error('[Clerk] Please set this environment variable in Vercel:');
+    console.error('[Clerk] 1. Go to Vercel Dashboard → Your Project → Settings → Environment Variables');
+    console.error('[Clerk] 2. Add NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY with your Clerk publishable key');
+    console.error('[Clerk] 3. Get your key from Clerk Dashboard → API Keys');
+  }
 
   return (
     <ClerkProvider
