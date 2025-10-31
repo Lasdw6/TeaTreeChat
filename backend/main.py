@@ -15,7 +15,15 @@ app = FastAPI()
 
 # Configure CORS
 # Get allowed origins from environment variable, fallback to localhost for development
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+# Include production domain by default
+default_origins = [
+    "http://localhost:3000",
+    "https://askteatree.chat",
+    "https://www.askteatree.chat",
+]
+env_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
+# Combine default origins with environment variable origins, removing empty strings
+allowed_origins = [origin.strip() for origin in default_origins + env_origins if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,6 +55,8 @@ app.include_router(api_router, prefix="/api")
 def init_db():
     # For SQLite, drop existing file manually if schema changed
     Base.metadata.create_all(bind=engine)
+    # Log allowed CORS origins for debugging
+    print(f"[CORS] Allowed origins: {allowed_origins}")
 
 # Health check endpoint
 @app.get("/")
