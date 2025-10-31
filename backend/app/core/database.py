@@ -20,6 +20,9 @@ if DATABASE_URL.startswith("postgresql://") and "pooler.supabase.com" in DATABAS
 elif DATABASE_URL.startswith("postgresql://") and "db." in DATABASE_URL:
     # Direct connection (non-pooler), also needs psycopg2
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+elif DATABASE_URL.startswith("postgresql://"):
+    # Fallback for any other postgresql:// URL
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 # Create engine for PostgreSQL (Supabase)
 # Supabase pooler configuration:
@@ -27,9 +30,9 @@ elif DATABASE_URL.startswith("postgresql://") and "db." in DATABASE_URL:
 # - Enable pool_pre_ping to check connections before use
 # - Set pool_recycle to reconnect before connections time out
 # - Enable echo for debugging if needed
-    engine = create_engine(
-        DATABASE_URL,
-        echo=False,  # Set to False in production
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,  # Set to False in production
     pool_size=5,  # Reduced for Supabase pooler limits
     max_overflow=10,  # Reduced for Supabase
     pool_pre_ping=True,  # Check connections before using them
@@ -38,7 +41,7 @@ elif DATABASE_URL.startswith("postgresql://") and "db." in DATABASE_URL:
         "connect_timeout": 10,
         "options": "-c statement_timeout=30000"  # 30 second query timeout
     }
-    )
+)
 
 # Create session factory
 SessionLocal = sessionmaker(
