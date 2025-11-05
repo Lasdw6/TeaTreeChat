@@ -74,14 +74,16 @@ async def shutdown_event():
     # Give ongoing requests time to complete
     await asyncio.sleep(1)
 
-def handle_sigterm(signum, frame):
-    print("Received SIGTERM. Starting graceful shutdown...")
-    sys.exit(0)
-
-# Register signal handlers
-signal.signal(signal.SIGTERM, handle_sigterm)
-signal.signal(signal.SIGINT, handle_sigterm)
-
+# Only register signal handlers when running directly (not under Gunicorn)
+# Gunicorn manages its own signal handling and workers should not interfere
 if __name__ == "__main__":
+    def handle_sigterm(signum, frame):
+        print("Received SIGTERM. Starting graceful shutdown...")
+        sys.exit(0)
+    
+    # Register signal handlers only for direct execution
+    signal.signal(signal.SIGTERM, handle_sigterm)
+    signal.signal(signal.SIGINT, handle_sigterm)
+    
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 
