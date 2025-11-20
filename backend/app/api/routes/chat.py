@@ -633,14 +633,23 @@ async def get_models():
                     pricing = model.get("pricing", {})
                     prompt_price = pricing.get("prompt")
                     completion_price = pricing.get("completion")
-                    if prompt_price is not None and completion_price is not None:
+                    
+                    # Convert prices to float (OpenRouter sometimes returns strings)
+                    try:
+                        prompt_float = float(prompt_price) if prompt_price is not None else None
+                        completion_float = float(completion_price) if completion_price is not None else None
+                    except (ValueError, TypeError):
+                        prompt_float = None
+                        completion_float = None
+                    
+                    if prompt_float is not None and completion_float is not None:
                         # Format prices nicely
-                        prompt_str = f"${prompt_price:.4f}" if prompt_price < 1 else f"${prompt_price:.2f}"
-                        completion_str = f"${completion_price:.4f}" if completion_price < 1 else f"${completion_price:.2f}"
+                        prompt_str = f"${prompt_float:.4f}" if prompt_float < 1 else f"${prompt_float:.2f}"
+                        completion_str = f"${completion_float:.4f}" if completion_float < 1 else f"${completion_float:.2f}"
                         description_parts.append(f"${prompt_str}/${completion_str} per 1M tokens")
                     
                     # Check if free
-                    is_free = prompt_price == 0 and completion_price == 0
+                    is_free = (prompt_float == 0 and completion_float == 0) if (prompt_float is not None and completion_float is not None) else False
                     if is_free:
                         description_parts.append("- Free")
                     

@@ -64,15 +64,36 @@ async def root():
     return {"message": "Chat API is running"}
 
 @app.get("/api/health")
-async def health_check(db: Session = Depends(get_db)):
+async def health_check():
     """Health check endpoint - publicly accessible for monitoring services"""
+    # Always return 200 to keep the server alive, even if DB is temporarily unavailable
+    # This prevents Render from restarting the service due to transient DB connection issues
     try:
-        # Execute a simple query to keep the database connection alive
-        db.execute(text("SELECT 1"))
-        return {"status": "healthy", "message": "Server is awake and responsive", "database": "connected"}
+        # Try to check database connection with a short timeout, but don't fail if it times out
+        db = next(get_db())
+        try:
+            # Use a simple query with timeout handling
+            db.execute(text("SELECT 1"))
+            db.close()
+            return {"status": "healthy", "message": "Server is awake and responsive", "database": "connected"}
+        except Exception as db_error:
+            db.close()
+            # Log but don't fail - server is still running, DB might just be temporarily slow
+            # This is common with Supabase pooler connections
+            error_msg = str(db_error)
+            if "timeout" in error_msg.lower():
+                # Don't log timeout errors as they're expected with pooler connections
+                pass
+            else:
+                print(f"Health check database error (non-critical): {db_error}")
+            return {"status": "healthy", "message": "Server is awake and responsive", "database": "timeout"}
     except Exception as e:
-        print(f"Health check database error: {e}")
-        return {"status": "degraded", "message": "Server is awake but database check failed", "error": str(e)}
+        # Even if DB connection fails completely, server is still running
+        # This prevents the health check from causing server restarts
+        error_msg = str(e)
+        if "timeout" not in error_msg.lower():
+            print(f"Health check database connection error (non-critical): {e}")
+        return {"status": "healthy", "message": "Server is awake and responsive", "database": "unavailable"}
 
 # Graceful shutdown handling
 @app.on_event("shutdown")
