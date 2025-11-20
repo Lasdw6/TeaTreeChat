@@ -49,14 +49,33 @@ async def allow_health_check_cors(request: Request, call_next):
 # Include API routes with prefix
 app.include_router(api_router, prefix="/api")
 
-# Database initialization is handled in start.sh script
-# Automatically create/update tables on startup (dev only)
+# Database initialization - non-blocking to prevent startup failures
+# Tables will be created on first use if they don't exist
 @app.on_event("startup")
-def init_db():
-    # For SQLite, drop existing file manually if schema changed
-    Base.metadata.create_all(bind=engine)
+async def init_db():
     # Log allowed CORS origins for debugging
     print(f"[CORS] Allowed origins: {allowed_origins}")
+    
+    # Try to initialize database tables in background, but don't fail startup if DB is unavailable
+    # This prevents the app from crashing when Supabase pooler connections are slow
+    async def try_create_tables():
+        try:
+            # Run synchronous DB operation in thread pool to avoid blocking startup
+            # This allows the app to start even if DB connection is slow
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, lambda: Base.metadata.create_all(bind=engine))
+            print("[DB] Database tables initialized successfully")
+        except Exception as e:
+            error_msg = str(e)
+            if "timeout" in error_msg.lower():
+                print("[DB] Database connection timeout during startup (non-critical - tables will be created on first use)")
+            else:
+                print(f"[DB] Database initialization warning (non-critical): {e}")
+            # Don't raise - allow app to start anyway
+    
+    # Start the DB initialization task but don't wait for it to complete
+    # This allows the app to start even if DB is temporarily unavailable
+    asyncio.create_task(try_create_tables())
 
 # Health check endpoint
 @app.get("/")
