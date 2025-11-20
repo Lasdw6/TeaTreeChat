@@ -21,6 +21,7 @@ export default function ChatPage() {
     setServerReady(true);
   };
 
+  // Guest mode logic - no longer require auth to view chat
   if (!isLoaded) {
     return (
       <Box sx={{ minHeight: '100vh', bgcolor: '#5B6F56', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

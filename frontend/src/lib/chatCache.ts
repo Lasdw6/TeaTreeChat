@@ -1,7 +1,7 @@
 import { Chat, Model } from '@/types/chat';
 
-const CACHE_KEY = 'teatree_recent_chats';
-const MODELS_CACHE_KEY = 'teatree_models_cache';
+const CACHE_KEY = 'teatree_recent_chats_v2';
+const MODELS_CACHE_KEY = 'teatree_models_cache_v2';
 const MAX_CACHED_CHATS = 10;
 
 interface CachedChat extends Chat {

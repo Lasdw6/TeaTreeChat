@@ -155,16 +155,6 @@ AVAILABLE_MODELS = [
 
     # Meta/Llama Models
     {
-        "id": "meta-llama/llama-4-maverick:free",
-        "name": "Llama 4 Maverick - Free + Premium",
-        "description": "Llama 4 Maverick with 128K context - Free"
-    },
-    {
-        "id": "meta-llama/llama-4-scout:free",
-        "name": "Llama 4 Scout - Free + Premium",
-        "description": "Llama 4 Scout with 128K context - Free"
-    },
-    {
         "id": "meta-llama/llama-3.3-70b-instruct:free",
         "name": "Llama 3.3 70B Instruct - Free",
         "description": "Llama 3.3 70B Instruct with 131K context - Free"

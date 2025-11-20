@@ -3,5 +3,5 @@ Allow: /
 Disallow: /api/
 Disallow: /settings/
 Disallow: /chat/
- 
-Sitemap: https://teatreechat.com/sitemap.xml 
+
+# Sitemap: https://your-domain.com/sitemap.xml 

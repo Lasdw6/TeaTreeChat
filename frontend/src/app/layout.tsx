@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://teatreechat.com',
+    // url: 'https://your-domain.com',
     title: 'TeaTree Chat - BYOK AI Chat Platform',
     description: 'Bring Your Own Key AI chat platform. Access all major AI models with your own API keys.',
     siteName: 'TeaTree Chat',
@@ -70,7 +70,7 @@ export default function RootLayout({
   // 
   // OPTIONAL: For custom domain setup:
   // - NEXT_PUBLIC_CLERK_DOMAIN - Use a subdomain OTHER than "clerk" (which is reserved)
-  //   Options: auth.askteatree.chat, account.askteatree.chat, login.askteatree.chat, etc.
+  //   Options: auth.yourdomain.com, account.yourdomain.com, etc.
   // - NEXT_PUBLIC_CLERK_FRONTEND_API_URL - Should match your satellite domain
   
   const clerkDomain = process.env.NEXT_PUBLIC_CLERK_DOMAIN || undefined;
