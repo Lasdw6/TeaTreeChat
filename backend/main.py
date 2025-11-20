@@ -1,9 +1,11 @@
 import os
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from app.api.routes import router as api_router
-from app.core.database import engine, Base
+from app.core.database import engine, Base, get_db
+from sqlalchemy.orm import Session
+from sqlalchemy import text
 import asyncio
 import signal
 import sys
@@ -18,8 +20,6 @@ app = FastAPI()
 # Include production domain by default
 default_origins = [
     "http://localhost:3000",
-    "https://askteatree.chat",
-    "https://www.askteatree.chat",
 ]
 env_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
 # Combine default origins with environment variable origins, removing empty strings
@@ -64,9 +64,15 @@ async def root():
     return {"message": "Chat API is running"}
 
 @app.get("/api/health")
-async def health_check():
+async def health_check(db: Session = Depends(get_db)):
     """Health check endpoint - publicly accessible for monitoring services"""
-    return {"status": "healthy", "message": "Server is awake and responsive"}
+    try:
+        # Execute a simple query to keep the database connection alive
+        db.execute(text("SELECT 1"))
+        return {"status": "healthy", "message": "Server is awake and responsive", "database": "connected"}
+    except Exception as e:
+        print(f"Health check database error: {e}")
+        return {"status": "degraded", "message": "Server is awake but database check failed", "error": str(e)}
 
 # Graceful shutdown handling
 @app.on_event("shutdown")
