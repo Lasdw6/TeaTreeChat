@@ -84,7 +84,11 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Not authenticated")
     
     # Verify Clerk token
-    session = verify_clerk_token(credentials.credentials)
+    try:
+        session = verify_clerk_token(credentials.credentials)
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
     clerk_id = session["user_id"]  # Clerk user ID
 
     # Try to find local user row
@@ -106,6 +110,20 @@ def get_current_user(
         else:
             db.refresh(user)
     return user
+
+def get_current_user_optional(
+    credentials = Security(bearer_scheme),
+    db: Session = Depends(get_db),
+):
+    if credentials is None:
+        return None
+    
+    try:
+        return get_current_user(credentials, db)
+    except HTTPException:
+        return None
+    except Exception:
+        return None
 
 class UserCreate(BaseModel):
     name: str

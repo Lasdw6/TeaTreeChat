@@ -61,6 +61,8 @@ export interface Model {
   id: string;
   name: string;
   description: string;
+  is_free?: boolean;
+  is_locked?: boolean;
 }
 
 export interface Chat {

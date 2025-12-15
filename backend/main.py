@@ -84,35 +84,40 @@ async def root():
 
 @app.get("/api/health")
 async def health_check():
-    """Health check endpoint - publicly accessible for monitoring services"""
-    # Always return 200 to keep the server alive, even if DB is temporarily unavailable
-    # This prevents Render from restarting the service due to transient DB connection issues
-    try:
-        # Try to check database connection with a short timeout, but don't fail if it times out
-        db = next(get_db())
+    """Health check endpoint - optimized for speed"""
+    # Use a separate task for DB check to avoid blocking the response for too long
+    # We want to return healthy quickly if the server is up, even if DB is slow
+    
+    async def check_db():
         try:
-            # Use a simple query with timeout handling
-            db.execute(text("SELECT 1"))
-            db.close()
-            return {"status": "healthy", "message": "Server is awake and responsive", "database": "connected"}
-        except Exception as db_error:
-            db.close()
-            # Log but don't fail - server is still running, DB might just be temporarily slow
-            # This is common with Supabase pooler connections
-            error_msg = str(db_error)
-            if "timeout" in error_msg.lower():
-                # Don't log timeout errors as they're expected with pooler connections
-                pass
-            else:
-                print(f"Health check database error (non-critical): {db_error}")
-            return {"status": "healthy", "message": "Server is awake and responsive", "database": "timeout"}
-    except Exception as e:
-        # Even if DB connection fails completely, server is still running
-        # This prevents the health check from causing server restarts
-        error_msg = str(e)
-        if "timeout" not in error_msg.lower():
-            print(f"Health check database connection error (non-critical): {e}")
-        return {"status": "healthy", "message": "Server is awake and responsive", "database": "unavailable"}
+            loop = asyncio.get_event_loop()
+            # Run blocking DB operation in a thread
+            def run_query():
+                db = SessionLocal()
+                try:
+                    db.execute(text("SELECT 1"))
+                    return True
+                except Exception:
+                    return False
+                finally:
+                    db.close()
+            
+            return await loop.run_in_executor(None, run_query)
+        except Exception:
+            return False
+
+    # Wait max 2 seconds for DB
+    try:
+        db_status = await asyncio.wait_for(check_db(), timeout=2.0)
+        status_msg = "connected" if db_status else "unavailable"
+    except asyncio.TimeoutError:
+        status_msg = "timeout"
+    
+    return {
+        "status": "healthy",
+        "message": "Server is awake",
+        "database": status_msg
+    }
 
 # Graceful shutdown handling
 @app.on_event("shutdown")

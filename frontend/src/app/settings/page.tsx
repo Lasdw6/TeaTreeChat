@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import TeaTreeLogo from '@/components/TeaTreeLogo';
+import { getCurrentUser } from '@/lib/api';
 
 export default function SettingsPage() {
   const { user } = useUser();
@@ -23,13 +24,34 @@ export default function SettingsPage() {
   const theme = useTheme();
   const router = useRouter();
 
-  // Handle client-side hydration
+  // Handle client-side hydration and check backend status
   useEffect(() => {
     setIsClient(true);
-    // Check if user has API key from localStorage
-    const apiKey = localStorage.getItem('apiKey');
-    setHasApiKey(!!apiKey);
-  }, []);
+    
+    const checkKeyStatus = async () => {
+      // 1. Check localStorage first (fastest, for guests)
+      const localKey = localStorage.getItem('apiKey');
+      let isSet = !!localKey;
+      
+      // 2. If logged in, check backend for authoritative status
+      if (user) {
+        try {
+          const token = await getToken();
+          if (token) {
+            const userData = await getCurrentUser(token);
+            isSet = userData.has_api_key;
+            console.log('[Settings] Backend key status:', isSet);
+          }
+        } catch (e) {
+          console.error('[Settings] Failed to check backend key status:', e);
+        }
+      }
+      
+      setHasApiKey(isSet);
+    };
+
+    checkKeyStatus();
+  }, [user, getToken]);
 
   useEffect(() => {
     // Show "..." if user has API key set, otherwise empty

@@ -19,7 +19,7 @@ from ...services.openrouter import generate_chat_completion
 from sqlalchemy.orm import Session
 from ...core.database import SessionLocal, get_db
 from pydantic import BaseModel
-from .user import get_current_user
+from .user import get_current_user, get_current_user_optional
 from ...models.user import User
 from passlib.context import CryptContext
 from cryptography.fernet import Fernet
@@ -56,187 +56,52 @@ class ChatDetail(BaseModel):
     user: str
 
 # Available models
+# Load from models.json if available, otherwise use static list
+try:
+    with open('frontend/openrouter_models.json', 'r') as f:
+        OPENROUTER_MODELS = json.load(f)
+except Exception as e:
+    logger.warning(f"Could not load openrouter_models.json: {e}")
+    OPENROUTER_MODELS = []
+
 AVAILABLE_MODELS = [
-    # OpenAI Models
+    # Best Free Models
     {
-        "id": "openai/gpt-4.1",
-        "name": "GPT-4.1 - Premium",
-        "description": "GPT-4.1 with 1M+ context ($2.00/$8.00 per 1M tokens)"
-    },
-    {
-        "id": "openai/gpt-4o",
-        "name": "GPT-4o - Premium",
-        "description": "GPT-4o with 128K context ($2.50/$10.00 per 1M tokens)"
-    },
-    {
-        "id": "openai/gpt-4.1-mini",
-        "name": "GPT-4.1 Mini - Premium",
-        "description": "GPT-4.1 Mini with 1M+ context ($0.40/$1.60 per 1M tokens)"
-    },
-    {
-        "id": "openai/gpt-4o-mini",
-        "name": "GPT-4o-mini - Premium",
-        "description": "GPT-4o-mini with 128K context ($0.15/$0.60 per 1M tokens)"
-    },
-    {
-        "id": "openai/gpt-4.1-nano",
-        "name": "GPT-4.1 Nano - Premium",
-        "description": "GPT-4.1 Nano with 1M+ context ($0.10/$0.40 per 1M tokens)"
-    },
-    {
-        "id": "openai/o4-mini",
-        "name": "o4 Mini - Reasoning",
-        "description": "o4 Mini with 200K context ($1.10/$4.40 per 1M tokens)"
-    },
-
-    # Anthropic Models
-    {
-        "id": "anthropic/claude-sonnet-4",
-        "name": "Claude Sonnet 4 - Reasoning",
-        "description": "Claude Sonnet 4 with 200K context ($3.00/$15.00 per 1M tokens)"
-    },
-    {
-        "id": "anthropic/claude-opus-4",
-        "name": "Claude Opus 4 - Premium",
-        "description": "Claude Opus 4 with 200K context ($15.00/$75.00 per 1M tokens)"
-    },
-    {
-        "id": "anthropic/claude-3.7-sonnet",
-        "name": "Claude 3.7 Sonnet - Premium",
-        "description": "Claude 3.7 Sonnet with 200K context ($3.00/$15.00 per 1M tokens)"
-    },
-    {
-        "id": "anthropic/claude-3.5-sonnet",
-        "name": "Claude 3.5 Sonnet - Premium",
-        "description": "Claude 3.5 Sonnet with 200K context ($3.00/$15.00 per 1M tokens)"
-    },
-
-    # Google/Gemini Models
-    {
-        "id": "google/gemini-2.5-pro-preview",
-        "name": "Gemini 2.5 Pro Preview 06-05 - Reasoning",
-        "description": "Gemini 2.5 Pro Preview 06-05 with 1M+ context ($1.25/$10.00 per 1M tokens)"
-    },
-    {
-        "id": "google/gemini-2.0-flash-001",
-        "name": "Gemini 2.0 Flash",
-        "description": "Gemini 2.0 Flash with 1M+ context ($0.10/$0.40 per 1M tokens)"
-    },
-    {
-        "id": "google/gemini-2.5-flash-preview",
-        "name": "Gemini 2.5 Flash Preview 04-17 - Reasoning",
-        "description": "Gemini 2.5 Flash Preview 04-17 with 1M+ context ($0.15/$0.60 per 1M tokens)"
-    },
-    {
-        "id": "google/gemini-flash-1.5",
-        "name": "Gemini 1.5 Flash",
-        "description": "Gemini 1.5 Flash with 1M+ context ($0.07/$0.30 per 1M tokens)"
-    },
-    {
-        "id": "google/gemini-2.0-flash-lite-001",
-        "name": "Gemini 2.0 Flash Lite",
-        "description": "Gemini 2.0 Flash Lite with 1M+ context ($0.07/$0.30 per 1M tokens)"
-    },
-    {
-        "id": "google/gemini-flash-1.5-8b",
-        "name": "Gemini 1.5 Flash 8B",
-        "description": "Gemini 1.5 Flash 8B with 1M+ context ($0.04/$0.15 per 1M tokens)"
+        "id": "meta-llama/llama-3.3-70b-instruct:free",
+        "name": "Llama 3.3 70B - Free",
+        "description": "Powerful, smart, and free. Great for most tasks."
     },
     {
         "id": "google/gemini-2.0-flash-exp:free",
-        "name": "Gemini 2.0 Flash Experimental - Free",
-        "description": "Gemini 2.0 Flash Experimental with 1M+ context - Free"
+        "name": "Gemini 2.0 Flash - Free",
+        "description": "Extremely fast and capable. Best for quick answers."
     },
     {
-        "id": "google/gemma-3-27b-it:free",
-        "name": "Gemma 3 27B - Free",
-        "description": "Gemma 3 27B with 96K context - Free"
-    },
-
-    # Meta/Llama Models
-    {
-        "id": "meta-llama/llama-3.3-70b-instruct:free",
-        "name": "Llama 3.3 70B Instruct - Free",
-        "description": "Llama 3.3 70B Instruct with 131K context - Free"
-    },
-    {
-        "id": "meta-llama/llama-3.1-70b-instruct",
-        "name": "Llama 3.1 70B Instruct",
-        "description": "Llama 3.1 70B Instruct with 131K context ($0.10/$0.28 per 1M tokens)"
-    },
-    {
-        "id": "meta-llama/llama-3.1-8b-instruct:free",
-        "name": "Llama 3.1 8B Instruct - Free",
-        "description": "Llama 3.1 8B Instruct with 131K context - Free"
+        "id": "deepseek/deepseek-r1:free",
+        "name": "DeepSeek R1 - Free (Reasoning)",
+        "description": "Excellent at reasoning and complex logic."
     },
     {
         "id": "meta-llama/llama-3.2-3b-instruct:free",
-        "name": "Llama 3.2 3B Instruct - Free",
-        "description": "Llama 3.2 3B Instruct with 20K context - Free"
+        "name": "Llama 3.2 3B - Free (Fast)",
+        "description": "Lightweight and super fast. Good for simple chats."
     },
 
-    # DeepSeek Models
+    # Premium Models
     {
-        "id": "deepseek/deepseek-r1:free",
-        "name": "R1 - Free + Reasoning",
-        "description": "R1 with 163K context - Free"
+        "id": "openai/gpt-4o",
+        "name": "GPT-4o",
+        "description": "OpenAI's flagship model. Smartest overall."
     },
     {
-        "id": "deepseek/deepseek-r1-0528:free",
-        "name": "R1 0528 - Free + Reasoning",
-        "description": "R1 0528 with 163K context - Free"
+        "id": "anthropic/claude-3.5-sonnet",
+        "name": "Claude 3.5 Sonnet",
+        "description": "Best for coding and nuanced writing."
     },
     {
-        "id": "deepseek/deepseek-chat:free",
-        "name": "DeepSeek V3 - Free",
-        "description": "DeepSeek V3 with 163K context - Free"
-    },
-    {
-        "id": "deepseek/deepseek-chat-v3-0324:free",
-        "name": "DeepSeek V3 0324 - Free",
-        "description": "DeepSeek V3 0324 with 163K context - Free"
-    },
-    {
-        "id": "tngtech/deepseek-r1t-chimera:free",
-        "name": "DeepSeek R1T Chimera - Free + Reasoning",
-        "description": "DeepSeek R1T Chimera with 163K context - Free"
-    },
-
-    # Other Models
-    {
-        "id": "x-ai/grok-3-beta",
-        "name": "Grok 3 Beta - Premium",
-        "description": "Grok 3 Beta with 131K context ($3.00/$15.00 per 1M tokens)"
-    },
-    {
-        "id": "x-ai/grok-3-mini-beta",
-        "name": "Grok 3 Mini Beta - Premium",
-        "description": "Grok 3 Mini Beta with 131K context ($0.30/$0.50 per 1M tokens)"
-    },
-    {
-        "id": "mistralai/mistral-nemo:free",
-        "name": "Mistral Nemo - Free",
-        "description": "Mistral Nemo with 131K context - Free"
-    },
-    {
-        "id": "mistralai/mistral-small-3.1-24b-instruct:free",
-        "name": "Mistral Small 3.1 24B - Free",
-        "description": "Mistral Small 3.1 24B with 96K context - Free"
-    },
-    {
-        "id": "nousresearch/hermes-3-llama-3.1-405b",
-        "name": "Hermes 3 405B Instruct - Premium",
-        "description": "Hermes 3 405B Instruct with 131K context ($0.70/$0.80 per 1M tokens)"
-    },
-    {
-        "id": "qwen/qwen3-235b-a22b:free",
-        "name": "Qwen3 235B A22B - Free",
-        "description": "Qwen3 235B A22B with 40K context - Free"
-    },
-    {
-        "id": "qwen/qwen-2.5-7b-instruct",
-        "name": "Qwen2.5 7B Instruct",
-        "description": "Qwen2.5 7B Instruct with 32K context ($0.04/$0.10 per 1M tokens)"
+        "id": "google/gemini-pro-1.5",
+        "name": "Gemini 1.5 Pro",
+        "description": "Great for long context and analysis."
     }
 ]
 
@@ -591,100 +456,120 @@ def get_chat_messages(chat_id: int, db: Session = Depends(get_db), current_user:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/models")
-async def get_models():
+async def get_models(current_user: Optional[User] = Depends(get_current_user_optional)):
     """
-    Get list of available models from OpenRouter API
-    Falls back to static list if API is unavailable
+    Get list of available models.
+    Returns all models, but marks premium ones as locked if user has no API key.
     """
     try:
-        # Fetch models dynamically from OpenRouter
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get("https://openrouter.ai/api/v1/models")
-            if response.status_code == 200:
-                data = response.json()
-                models = []
-                
-                # Transform OpenRouter models format to our format
-                for model in data.get("data", []):
-                    # Only include models that support chat completion
-                    model_id = model.get("id", "")
-                    if not model_id:
-                        continue
+        # Determine if user has API key (either in DB or potentially passed in header/session)
+        has_api_key = False
+        if current_user and current_user.api_key:
+            has_api_key = True
+            
+        # Use local models file
+        if os.path.exists('openrouter_models.json'):
+             try:
+                with open('openrouter_models.json', 'r') as f:
+                    data = json.load(f)
+                    models = []
                     
-                    # Skip very old or experimental models that might not work well
-                    model_id_lower = model_id.lower()
-                    if any(skip in model_id_lower for skip in ["gpt-3.5", "gpt-3", "claude-1", "claude-2"]):
-                        continue
+                    # Transform OpenRouter models format to our format
+                    for model in data.get("data", []):
+                        # Only include models that support chat completion
+                        model_id = model.get("id", "")
+                        if not model_id:
+                            continue
+                        
+                        # Determine pricing and free status
+                        pricing = model.get("pricing", {})
+                        prompt_price = float(pricing.get("prompt", 0) or 0)
+                        completion_price = float(pricing.get("completion", 0) or 0)
+                        is_free = (prompt_price == 0 and completion_price == 0)
+                        
+                        # Determine if locked for this user
+                        is_locked = not has_api_key and not is_free
+
+                        # Skip very old or experimental models that might not work well
+                        model_id_lower = model_id.lower()
+                        if any(skip in model_id_lower for skip in ["gpt-3.5", "gpt-3", "claude-1", "claude-2"]):
+                            continue
+                        
+                        name = model.get("name", model_id)
+                        description_parts = []
+                        
+                        # Add context info
+                        context_length = model.get("context_length")
+                        if context_length:
+                            if context_length >= 1000000:
+                                description_parts.append(f"{context_length//1000000}M+ context")
+                            elif context_length >= 1000:
+                                description_parts.append(f"{context_length//1000}K context")
+                            else:
+                                description_parts.append(f"{context_length} context")
+                        
+                        if prompt_price is not None and completion_price is not None:
+                            # Format prices nicely
+                            prompt_str = f"${prompt_price:.4f}" if prompt_price < 1 else f"${prompt_price:.2f}"
+                            completion_str = f"${completion_price:.4f}" if completion_price < 1 else f"${completion_price:.2f}"
+                            description_parts.append(f"${prompt_str}/${completion_str} per 1M tokens")
+                        
+                        if is_free:
+                            description_parts.append("- Free")
+                        
+                        description = " • ".join(description_parts) if description_parts else "Available via OpenRouter"
+                        
+                        # Add category tag
+                        tags = []
+                        if is_free:
+                            tags.append("Free")
+                        if "reasoning" in name.lower() or "r1" in model_id.lower():
+                            tags.append("Reasoning")
+                        if any(x in name.lower() for x in ["premium", "pro", "max"]) and not is_free:
+                            tags.append("Premium")
+                        
+                        display_name = name
+                        if tags:
+                            display_name += f" - {' + '.join(tags)}"
+                        
+                        models.append({
+                            "id": model_id,
+                            "name": display_name,
+                            "description": description,
+                            "is_free": is_free,
+                            "is_locked": is_locked
+                        })
                     
-                    name = model.get("name", model_id)
-                    description_parts = []
+                    # Sort models: free first, then by name
+                    models.sort(key=lambda x: (not x["name"].endswith("Free"), x["name"]))
                     
-                    # Add context info
-                    context_length = model.get("context_length")
-                    if context_length:
-                        if context_length >= 1000000:
-                            description_parts.append(f"{context_length//1000000}M+ context")
-                        elif context_length >= 1000:
-                            description_parts.append(f"{context_length//1000}K context")
-                        else:
-                            description_parts.append(f"{context_length} context")
-                    
-                    # Add pricing info
-                    pricing = model.get("pricing", {})
-                    prompt_price = pricing.get("prompt")
-                    completion_price = pricing.get("completion")
-                    
-                    # Convert prices to float (OpenRouter sometimes returns strings)
-                    try:
-                        prompt_float = float(prompt_price) if prompt_price is not None else None
-                        completion_float = float(completion_price) if completion_price is not None else None
-                    except (ValueError, TypeError):
-                        prompt_float = None
-                        completion_float = None
-                    
-                    if prompt_float is not None and completion_float is not None:
-                        # Format prices nicely
-                        prompt_str = f"${prompt_float:.4f}" if prompt_float < 1 else f"${prompt_float:.2f}"
-                        completion_str = f"${completion_float:.4f}" if completion_float < 1 else f"${completion_float:.2f}"
-                        description_parts.append(f"${prompt_str}/${completion_str} per 1M tokens")
-                    
-                    # Check if free
-                    is_free = (prompt_float == 0 and completion_float == 0) if (prompt_float is not None and completion_float is not None) else False
-                    if is_free:
-                        description_parts.append("- Free")
-                    
-                    description = " • ".join(description_parts) if description_parts else "Available via OpenRouter"
-                    
-                    # Add category tag
-                    tags = []
-                    if is_free:
-                        tags.append("Free")
-                    if "reasoning" in name.lower() or "r1" in model_id.lower():
-                        tags.append("Reasoning")
-                    if any(x in name.lower() for x in ["premium", "pro", "max"]):
-                        tags.append("Premium")
-                    
-                    display_name = name
-                    if tags:
-                        display_name += f" - {' + '.join(tags)}"
-                    
-                    models.append({
-                        "id": model_id,
-                        "name": display_name,
-                        "description": description
-                    })
-                
-                # Sort models: free first, then by name
-                models.sort(key=lambda x: (not x["name"].endswith("Free"), x["name"]))
-                
-                logger.info(f"Fetched {len(models)} models from OpenRouter API")
-                return {"models": models}
-            else:
-                logger.warning(f"OpenRouter API returned status {response.status_code}, using static list")
-                return {"models": AVAILABLE_MODELS}
+                    logger.info(f"Loaded {len(models)} models from local file (User has key: {has_api_key})")
+                    return {"models": models}
+             except Exception as e:
+                 logger.error(f"Error loading local models file: {e}")
+
+        # Fallback to static list if local file fails or doesn't exist
+        logger.warning("Using static models list as fallback")
+        static_models = []
+        for m in AVAILABLE_MODELS:
+            is_free = "Free" in m["name"]
+            is_locked = not has_api_key and not is_free
+            m_copy = m.copy()
+            m_copy["is_free"] = is_free
+            m_copy["is_locked"] = is_locked
+            static_models.append(m_copy)
+        return {"models": static_models}
     except Exception as e:
         logger.warning(f"Failed to fetch models from OpenRouter API: {str(e)}, using static list")
-        return {"models": AVAILABLE_MODELS} 
+        static_models = []
+        for m in AVAILABLE_MODELS:
+            is_free = "Free" in m["name"]
+            is_locked = not has_api_key and not is_free
+            m_copy = m.copy()
+            m_copy["is_free"] = is_free
+            m_copy["is_locked"] = is_locked
+            static_models.append(m_copy)
+        return {"models": static_models} 
 
 @router.delete("/chats/{chat_id}/messages/regenerate/{message_id}")
 def delete_messages_after_regeneration(chat_id: int, message_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

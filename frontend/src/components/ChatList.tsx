@@ -40,6 +40,7 @@ interface ChatListProps {
   selectedChatId: number | null;
   shouldRefresh?: boolean;
   onRefresh?: () => void;
+  hasApiKey?: boolean;
 }
 
 const FIXED_WELCOME_DATE = '2024-01-01T00:00:00.000Z';
@@ -86,7 +87,7 @@ const WELCOME_MESSAGES: import('@/types/chat').Message[] = [
   },
 ];
 
-export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh = false, onRefresh }: ChatListProps) {
+export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh = false, onRefresh, hasApiKey = false }: ChatListProps) {
   const { user } = useUser();
   const { getToken } = useAuth();
   const { openSignIn, openSignUp } = useClerk();
@@ -109,7 +110,7 @@ export default function ChatList({ onSelectChat, selectedChatId, shouldRefresh =
   const [isRenameChatDialogOpen, setIsRenameChatDialogOpen] = useState(false);
   const [renameChatId, setRenameChatId] = useState<number | null>(null);
   const [renameChatTitle, setRenameChatTitle] = useState('');
-  const hasKey = !!(typeof window !== 'undefined' && localStorage.getItem('apiKey'));
+  const hasKey = hasApiKey;
 
   useEffect(() => {
     if (user) {

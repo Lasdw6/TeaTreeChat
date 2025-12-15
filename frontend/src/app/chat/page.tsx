@@ -34,16 +34,15 @@ export default function ChatPage() {
     <ServerStatusLoader onServerReady={handleServerReady}>
       <Box sx={{ minHeight: '100vh', bgcolor: '#5B6F56' }}>
         <Box sx={{ width: '100%', display: 'flex', justifyContent: 'flex-end', p: 2, position: 'absolute', top: 0, right: 0, zIndex: 10 }}>
-          <Link href="/settings" style={{ textDecoration: 'none' }}>
-            <Button
-              ref={settingsButtonRef}
-              startIcon={<SettingsIcon />}
-              sx={{ bgcolor: '#D6BFA3', color: '#4E342E', fontWeight: 600, borderRadius: 2, '&:hover': { bgcolor: '#bfae8c' } }}
-              variant="contained"
-            >
-              Settings
-            </Button>
-          </Link>
+          <Button
+            ref={settingsButtonRef}
+            startIcon={<SettingsIcon />}
+            sx={{ bgcolor: '#D6BFA3', color: '#4E342E', fontWeight: 600, borderRadius: 2, '&:hover': { bgcolor: '#bfae8c' } }}
+            variant="contained"
+            onClick={() => router.push('/settings')}
+          >
+            Settings
+          </Button>
         </Box>
         <Chat />
       </Box>

@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.23.2",
+    "@clerk/nextjs": "^6.36.2",
     "@emotion/react": "^11.11.3",
     "@emotion/styled": "^11.11.0",
     "@mui/icons-material": "^5.15.6",
@@ -28,6 +28,7 @@
     "react-dom": "^18.2.0",
     "react-markdown": "^8.0.7",
     "react-syntax-highlighter": "^15.6.1",
+    "remark-gfm": "^3.0.1",
     "tailwindcss": "^3.3.3",
     "typescript": "^5.2.2",
     "uuid": "^9.0.0"

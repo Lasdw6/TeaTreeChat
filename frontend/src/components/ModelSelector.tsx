@@ -399,11 +399,14 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                         <button
                           key={model.id}
                           ref={selectedModel === model.id ? selectedModelRef : null}
-                          onClick={() => handleModelSelect(model.id)}
+                          onClick={() => !model.is_locked && handleModelSelect(model.id)}
+                          disabled={model.is_locked}
                           className={`w-full px-4 py-4 text-left rounded-xl transition-all duration-200 border ${
                             selectedModel === model.id 
                               ? 'bg-gradient-to-br from-[#5B6F56] to-[#5B6F56]/90 text-white border-[#5B6F56] shadow-lg shadow-[#5B6F56]/25' 
-                              : 'text-[#D6BFA3] border-[#D6BFA3]/30 hover:bg-[#5B6F56]/10 hover:border-[#5B6F56]/50 hover:shadow-md hover:shadow-[#5B6F56]/10'
+                              : model.is_locked
+                                ? 'bg-[#4E342E]/50 text-[#D6BFA3]/40 border-[#D6BFA3]/10 cursor-not-allowed'
+                                : 'text-[#D6BFA3] border-[#D6BFA3]/30 hover:bg-[#5B6F56]/10 hover:border-[#5B6F56]/50 hover:shadow-md hover:shadow-[#5B6F56]/10'
                           }`}
                         >
                           <div className="flex items-start justify-between">
@@ -411,11 +414,16 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                               <div className="mb-2">
                                 <div className="flex items-center space-x-2 mb-1">
                                   <span className="font-semibold text-sm leading-tight">{getCleanModelName(model.name)}</span>
+                                  {model.is_locked && (
+                                    <svg className="w-4 h-4 text-[#D6BFA3]/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                  )}
                                 </div>
                                 {getModelBadges(model)}
                               </div>
                               <p className={`text-xs leading-relaxed line-clamp-2 ${
-                                selectedModel === model.id ? 'text-white/90' : 'text-[#D6BFA3]/70'
+                                selectedModel === model.id ? 'text-white/90' : model.is_locked ? 'text-[#D6BFA3]/30' : 'text-[#D6BFA3]/70'
                               }`}>
                                 {model.description}
                               </p>
@@ -423,7 +431,9 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                                 <span className={`text-xs px-2 py-1 rounded-full truncate max-w-full ${
                                   selectedModel === model.id 
                                     ? 'bg-white/20 text-white/90' 
-                                    : 'bg-[#5B6F56]/20 text-[#5B6F56]/90'
+                                    : model.is_locked
+                                      ? 'bg-[#D6BFA3]/5 text-[#D6BFA3]/30'
+                                      : 'bg-[#5B6F56]/20 text-[#5B6F56]/90'
                                 }`}>
                                   {model.id}
                                 </span>
@@ -478,16 +488,24 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                         <button
                           key={model.id}
                           ref={selectedModel === model.id ? selectedModelRef : null}
-                          onClick={() => handleModelSelect(model.id)}
+                          onClick={() => !model.is_locked && handleModelSelect(model.id)}
+                          disabled={model.is_locked}
                           className={`w-full px-3 py-2 text-left transition-all duration-200 flex items-center justify-between ${
                             selectedModel === model.id 
                               ? 'bg-[#5B6F56] text-white' 
-                              : 'text-[#D6BFA3] hover:bg-[#5B6F56]/10'
+                              : model.is_locked
+                                ? 'text-[#D6BFA3]/40 cursor-not-allowed bg-[#4E342E]/30'
+                                : 'text-[#D6BFA3] hover:bg-[#5B6F56]/10'
                           }`}
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center space-x-2 mb-1">
                               <span className="font-medium text-sm truncate">{getCleanModelName(model.name)}</span>
+                              {model.is_locked && (
+                                <svg className="w-3.5 h-3.5 text-[#D6BFA3]/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                              )}
                             </div>
                             {getModelBadges(model)}
                           </div>

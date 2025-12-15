@@ -1,6 +1,21 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-export default clerkMiddleware();
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/chat(.*)",
+  "/register(.*)",
+  "/login(.*)",
+  "/sitemap.xml",
+  "/manifest.json",
+  "/favicon.svg",
+  "/robots.txt"
+]);
+
+export default clerkMiddleware(async (auth, request) => {
+  if (!isPublicRoute(request)) {
+    await auth.protect();
+  }
+});
 
 export const config = {
   matcher: [
@@ -9,4 +24,4 @@ export const config = {
     // Always run for API routes
     "/(api|trpc)(.*)",
   ],
-}; 
+};

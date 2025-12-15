@@ -335,7 +335,11 @@ export async function loginUser(email: string, password: string) {
 
 export async function getCurrentUser(token: string) {
   const response = await fetch(`${API_BASE_URL}/user/me`, {
-    headers: { 'Authorization': `Bearer ${token}` },
+    headers: { 
+      'Authorization': `Bearer ${token}`,
+      'Cache-Control': 'no-cache'
+    },
+    cache: 'no-store'
   });
   if (!response.ok) {
     throw new Error('Not authenticated');

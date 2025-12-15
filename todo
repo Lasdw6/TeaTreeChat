@@ -1,35 +1,3 @@
-[] Add multimodal input/putput support
+prevent cold starts
 
-[] Add token cost estimator
-
-[x] Improve the pasted content
-
-[] Support for a backup api key
-
-[] Chat search
-
-[] Model search
-
-[] Use custom models
-
-[x] Add model provider logo
-
-[] customization such as font. 
-
-[] Add recent chat going to the top
-
-[x] Add account creation tuttorial
-
-[] Add chat name auto feature
-
-[] Dark mode
-
-[] Imporve mobile UI
-
-[] Model Suggestion
-
-[] System Prompts
-
-[] Usage without logging in
-
-[] move Auth to clerk
+updated nextjs

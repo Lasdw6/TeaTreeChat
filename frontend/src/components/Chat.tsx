@@ -9,7 +9,7 @@ import { useTheme } from '@mui/material/styles';
 import { Box, Fade, Fab, Typography, Drawer, IconButton } from '@mui/material';
 import TeaTreeLogo from './TeaTreeLogo';
 import chatCache from '@/lib/chatCache';
-import { getModels, pingServer } from '@/lib/api';
+import { getModels, pingServer, getCurrentUser } from '@/lib/api';
 import { Model } from '@/types/chat';
 import { DEFAULT_MODEL, APP_NAME } from '@/lib/constants';
 import useMediaQuery from '@/hooks/useMediaQuery';
@@ -104,7 +104,7 @@ export default function Chat() {
   }, []);
 
   useEffect(() => {
-    if (selectedChatId) {
+    if (selectedChatId && selectedChatId > 0) {
       fetchChatMessages(selectedChatId);
       idCounter.current = 0; // Reset counter when chat changes
     } else {
@@ -139,17 +139,56 @@ export default function Chat() {
     }
   }, [messages.length, selectedChatId]);
 
-  // On mount and when localStorage changes, update apiKey from localStorage
+  // On mount and when localStorage changes, update apiKey
   useEffect(() => {
+    const checkApiKey = async () => {
+      // 1. Check localStorage first (fastest, for guests)
+      const localKey = typeof window !== 'undefined' ? localStorage.getItem('apiKey') : null;
+      let currentKey = localKey;
+      
+      console.log('[Chat] Checking API key status. User:', clerkUser?.id);
+
+      // 2. If logged in, check backend for authoritative status
+      if (clerkUser) {
+        try {
+          const token = await getToken();
+          console.log('[Chat] User logged in. Token available:', !!token);
+          
+          if (token) {
+            console.log('[Chat] Fetching user data from backend...');
+            const userData = await getCurrentUser(token);
+            console.log('[Chat] Backend user data:', userData);
+            
+            // If backend has key, consider it set. If not, consider it unset (overriding local)
+            if (userData.has_api_key) {
+              currentKey = 'SET_ON_BACKEND';
+            } else {
+              currentKey = null;
+            }
+          }
+        } catch (e) {
+          console.error('[Chat] Failed to check backend key status:', e);
+        }
+      } else {
+        console.log('[Chat] User not logged in, skipping backend check');
+      }
+      
+      setApiKey(currentKey);
+    };
+
+    checkApiKey();
+
+    // Listen for storage events (legacy support)
     if (typeof window !== 'undefined') {
-      setApiKey(localStorage.getItem('apiKey'));
       const handleStorage = (e: StorageEvent) => {
-        if (e.key === 'apiKey') setApiKey(e.newValue);
+        if (e.key === 'apiKey') {
+          checkApiKey();
+        }
       };
       window.addEventListener('storage', handleStorage);
       return () => window.removeEventListener('storage', handleStorage);
     }
-  }, []);
+  }, [clerkUser, getToken]);
 
   const fetchChatMessages = async (chatId: number) => {
     try {
@@ -443,6 +482,7 @@ export default function Chat() {
 
       let accumulatedContent = "";
       const decoder = new TextDecoder();
+      let buffer = ""; // Buffer for incomplete lines
       let lastChunkTimeout: NodeJS.Timeout | undefined;
 
       const updateMessage = (content: string) => {
@@ -465,12 +505,40 @@ export default function Chat() {
         while (true) {
           const { done, value } = await reader.read();
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n').filter(line => line.trim() !== '');
+          if (done) {
+            // Process any remaining buffer
+            if (buffer.trim()) {
+               // Try to process the last line if it exists
+               const line = buffer.trim();
+               if (line.startsWith('data: ')) {
+                  const data = line.slice(6);
+                  if (data !== '[DONE]') {
+                     try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.content) {
+                           accumulatedContent += parsed.content;
+                           updateMessage(accumulatedContent);
+                        }
+                     } catch(e) { console.error("Error parsing final chunk", e)}
+                  }
+               }
+            }
+            break;
+          }
+
+          const chunk = decoder.decode(value, { stream: true });
+          buffer += chunk;
+          
+          const lines = buffer.split('\n');
+          // Keep the last incomplete line in the buffer
+          buffer = lines.pop() || "";
 
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
+            const trimmedLine = line.trim();
+            if (!trimmedLine) continue;
+
+            if (trimmedLine.startsWith('data: ')) {
+              const data = trimmedLine.slice(6);
               if (data === '[DONE]') {
                 // Clear any existing timeout
                 if (lastChunkTimeout) {
@@ -489,7 +557,7 @@ export default function Chat() {
                     setShouldRefreshChats(true);
                   }
                 }, 2000);
-                break;
+                continue; // Don't break, continue processing other lines
               }
 
               try {
@@ -511,18 +579,6 @@ export default function Chat() {
                 console.error("Error parsing chunk:", e);
               }
             }
-          }
-
-          if (done) {
-            // Clear any existing timeout
-            if (lastChunkTimeout) {
-              clearTimeout(lastChunkTimeout);
-            }
-            // Final update to ensure we have the complete content
-            updateMessage(accumulatedContent);
-            // Clear streaming state since we're done
-            setStreamingMessageId(undefined);
-            break;
           }
         }
       } finally {
@@ -889,9 +945,7 @@ export default function Chat() {
   const handleSelectChat = (chatId: number | null) => {
     setSelectedChatId(chatId);
     setMessages([]);
-    if (chatId) {
-      fetchChatMessages(chatId);
-    }
+    // Effect will handle fetching
     if (isMobile) {
       setMobileSidebarOpen(false);
     }
@@ -903,6 +957,7 @@ export default function Chat() {
       selectedChatId={selectedChatId} 
       shouldRefresh={shouldRefreshChats}
       onRefresh={onChatListRefresh}
+      hasApiKey={!!apiKey}
     />
   );
 

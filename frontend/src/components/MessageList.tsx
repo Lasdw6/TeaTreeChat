@@ -1,6 +1,7 @@
 import React, { useRef, useState, useLayoutEffect, forwardRef, useImperativeHandle, useEffect } from 'react';
 import { Message as MessageType, Model } from '@/types/chat';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Box, Typography, CircularProgress, IconButton, Tooltip, Menu, MenuItem, Modal, Portal } from '@mui/material';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -258,8 +259,29 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
             ) : (
               <ReactMarkdown 
                 children={processedContent}
+                remarkPlugins={[remarkGfm]}
                 components={{
               p: ({ children }: any) => <p className="mb-4 last:mb-0">{children}</p>,
+              table: ({ children }: any) => (
+                <div className="overflow-x-auto my-4">
+                  <table className="min-w-full divide-y divide-[#4E342E]/30 border border-[#4E342E]/30 rounded-lg overflow-hidden">
+                    {children}
+                  </table>
+                </div>
+              ),
+              thead: ({ children }: any) => <thead className="bg-[#4E342E]/30 text-[#D6BFA3]">{children}</thead>,
+              tbody: ({ children }: any) => <tbody className="divide-y divide-[#4E342E]/30">{children}</tbody>,
+              tr: ({ children }: any) => <tr className="hover:bg-[#D6BFA3]/5 transition-colors">{children}</tr>,
+              th: ({ children }: any) => (
+                <th className="px-4 py-3 text-left text-xs font-medium text-[#D6BFA3] uppercase tracking-wider border-b border-[#4E342E]/30">
+                  {children}
+                </th>
+              ),
+              td: ({ children }: any) => (
+                <td className="px-4 py-3 whitespace-normal text-sm text-[#D6BFA3] border-r border-[#4E342E]/30 last:border-r-0">
+                  {children}
+                </td>
+              ),
               h1: ({ children }: any) => <h1 className="text-xl font-bold mt-6 mb-4">{children}</h1>,
               h2: ({ children }: any) => <h2 className="text-lg font-bold mt-5 mb-3">{children}</h2>,
               h3: ({ children }: any) => <h3 className="text-base font-bold mt-4 mb-2">{children}</h3>,
@@ -270,7 +292,18 @@ const Message: React.FC<MessageProps> = ({ message, isStreaming = false, onRegen
                   href={href} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  style={{ color: '#4E342E', textDecoration: 'underline' }}
+                  style={{ 
+                    color: message.role === 'user' ? '#4E342E' : '#D6BFA3',
+                    textDecoration: 'none',
+                    backgroundColor: message.role === 'user' ? 'rgba(78, 52, 46, 0.08)' : 'rgba(214, 191, 163, 0.1)',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    border: message.role === 'user' ? '1px solid rgba(78, 52, 46, 0.2)' : '1px solid rgba(214, 191, 163, 0.2)',
+                    fontWeight: 500,
+                    transition: 'all 0.2s',
+                    wordBreak: 'break-word'
+                  }}
+                  className="hover:opacity-80"
                   {...props}
                 >
                   {children}

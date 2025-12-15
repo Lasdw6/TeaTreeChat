@@ -38,8 +38,8 @@ engine = create_engine(
     pool_pre_ping=True,  # Check connections before using them
     pool_recycle=300,  # Recycle connections every 5 minutes (Supabase timeout is ~10 min)
     connect_args={
-        "connect_timeout": 10,
-        "options": "-c statement_timeout=30000"  # 30 second query timeout
+        "connect_timeout": 5,  # Reduced from 10 to 5 seconds for faster feedback
+        "options": "-c statement_timeout=5000"  # Reduced from 30s to 5s
     }
 )
 
