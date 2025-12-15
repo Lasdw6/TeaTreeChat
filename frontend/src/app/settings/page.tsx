@@ -199,27 +199,29 @@ export default function SettingsPage() {
             Create for free here
           </a>
         </Typography>
-        <TextField
-          label="OpenRouter API Key"
-          type="password"
-          value={keyInput}
-          onChange={e => setKeyInput(e.target.value)}
-          fullWidth
-          margin="normal"
-          placeholder={hasApiKey ? "API key is set" : "sk-or-..."}
-          InputLabelProps={{ style: { color: theme.palette.text.secondary } }}
-          InputProps={{ style: { color: theme.palette.primary.contrastText, background: 'rgba(255,255,255,0.06)', borderRadius: 2 } }}
-          sx={{ mb: 2 }}
-        />
-        <Button
-          variant="contained"
-          sx={{ fontWeight: 700, bgcolor: '#D6BFA3', color: '#4E342E', borderRadius: 2, boxShadow: '0 2px 8px 0 rgba(91,111,86,0.10)', '&:hover': { bgcolor: '#bfae8c' }, mb: 3 }}
-          onClick={handleSaveKey}
-          disabled={saving || keyInput.trim() === "••••••••••••••••••••••••••••••••" || keyInput.trim() === ""}
-          fullWidth
-        >
-          {saving ? 'Saving...' : 'Save Key'}
-        </Button>
+        <form onSubmit={(e) => { e.preventDefault(); handleSaveKey(); }} style={{ width: '100%' }}>
+          <TextField
+            label="OpenRouter API Key"
+            type="password"
+            value={keyInput}
+            onChange={e => setKeyInput(e.target.value)}
+            fullWidth
+            margin="normal"
+            placeholder={hasApiKey ? "API key is set" : "sk-or-..."}
+            InputLabelProps={{ style: { color: theme.palette.text.secondary } }}
+            InputProps={{ style: { color: theme.palette.primary.contrastText, background: 'rgba(255,255,255,0.06)', borderRadius: 2 } }}
+            sx={{ mb: 2 }}
+          />
+          <Button
+            type="submit"
+            variant="contained"
+            sx={{ fontWeight: 700, bgcolor: '#D6BFA3', color: '#4E342E', borderRadius: 2, boxShadow: '0 2px 8px 0 rgba(91,111,86,0.10)', '&:hover': { bgcolor: '#bfae8c' }, mb: 3 }}
+            disabled={saving || keyInput.trim() === "••••••••••••••••••••••••••••••••" || keyInput.trim() === ""}
+            fullWidth
+          >
+            {saving ? 'Saving...' : 'Save Key'}
+          </Button>
+        </form>
         
         {/* Success Snackbar */}
         <Snackbar

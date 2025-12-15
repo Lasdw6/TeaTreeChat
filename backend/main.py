@@ -20,6 +20,8 @@ app = FastAPI()
 # Include production domain by default
 default_origins = [
     "http://localhost:3000",
+    "https://askteatree.chat",
+    "https://www.askteatree.chat",
 ]
 env_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
 # Combine default origins with environment variable origins, removing empty strings
