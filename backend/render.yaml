@@ -9,6 +9,12 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      # Supabase Database (takes priority over DATABASE_URL)
+      # Set this in Render dashboard: Environment → Add Environment Variable
+      # Use Session mode pooler: postgresql://...@aws-0-REGION.pooler.supabase.com:6543/...
+      - key: SUPABASE_DATABASE_URL
+        sync: false  # Must be set manually in Render dashboard
+      # Render Database (fallback - only used if SUPABASE_DATABASE_URL is not set)
       - key: DATABASE_URL
         fromDatabase:
           name: chat-app-db
