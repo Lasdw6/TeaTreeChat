@@ -33,13 +33,14 @@ elif DATABASE_URL.startswith("postgresql://"):
 engine = create_engine(
     DATABASE_URL,
     echo=False,  # Set to False in production
-    pool_size=5,  # Reduced for Supabase pooler limits
-    max_overflow=10,  # Reduced for Supabase
+    pool_size=3,  # Reduced for Supabase pooler limits (was 5)
+    max_overflow=5,  # Reduced for Supabase (was 10)
     pool_pre_ping=True,  # Check connections before using them
     pool_recycle=300,  # Recycle connections every 5 minutes (Supabase timeout is ~10 min)
+    pool_reset_on_return='commit',  # Reset connections on return to pool
     connect_args={
-        "connect_timeout": 5,  # Reduced from 10 to 5 seconds for faster feedback
-        "options": "-c statement_timeout=5000"  # Reduced from 30s to 5s
+        "connect_timeout": 10,  # Increased to 10 seconds for better reliability
+        "options": "-c statement_timeout=30000"  # 30 second statement timeout
     }
 )
 

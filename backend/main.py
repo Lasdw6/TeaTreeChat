@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from app.api.routes import router as api_router
-from app.core.database import engine, Base, get_db
+from app.core.database import engine, Base, get_db, SessionLocal
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 import asyncio
@@ -24,8 +24,9 @@ default_origins = [
     "https://www.askteatree.chat",
 ]
 env_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
-# Combine default origins with environment variable origins, removing empty strings
-allowed_origins = [origin.strip() for origin in default_origins + env_origins if origin.strip()]
+# Combine default origins with environment variable origins, removing empty strings and duplicates
+all_origins = [origin.strip() for origin in default_origins + env_origins if origin.strip()]
+allowed_origins = list(dict.fromkeys(all_origins))  # Remove duplicates while preserving order
 
 app.add_middleware(
     CORSMiddleware,

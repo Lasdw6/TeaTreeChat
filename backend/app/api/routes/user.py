@@ -14,7 +14,9 @@ from ...models.chat import Chat, MessageDB
 from cryptography.fernet import Fernet
 import os
 import re
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError, DisconnectionError
+from fastapi import status
+import time
 
 router = APIRouter()
 
@@ -91,25 +93,47 @@ def get_current_user(
 
     clerk_id = session["user_id"]  # Clerk user ID
 
-    # Try to find local user row
-    user = db.query(User).filter(User.external_id == clerk_id).first()
-    if not user:
-        # Create user lazily from Clerk session data
-        user = User(
-            external_id=clerk_id,
-            name="Anonymous User",
-            email=session.get("email") or f"user-{clerk_id}@clerk.local"
-        )
-        db.add(user)
+    # Retry database operations with exponential backoff
+    max_retries = 3
+    for attempt in range(max_retries):
         try:
-            db.commit()
-        except IntegrityError:
-            # Another request inserted the same external_id concurrently
-            db.rollback()
+            # Try to find local user row
             user = db.query(User).filter(User.external_id == clerk_id).first()
-        else:
-            db.refresh(user)
-    return user
+            if not user:
+                # Create user lazily from Clerk session data
+                user = User(
+                    external_id=clerk_id,
+                    name="Anonymous User",
+                    email=session.get("email") or f"user-{clerk_id}@clerk.local"
+                )
+                db.add(user)
+                try:
+                    db.commit()
+                except IntegrityError:
+                    # Another request inserted the same external_id concurrently
+                    db.rollback()
+                    user = db.query(User).filter(User.external_id == clerk_id).first()
+                except (OperationalError, DisconnectionError) as e:
+                    db.rollback()
+                    if attempt < max_retries - 1:
+                        time.sleep(0.5 * (2 ** attempt))  # Exponential backoff
+                        continue
+                    raise HTTPException(
+                        status_code=503,
+                        detail="Database temporarily unavailable. Please try again in a moment."
+                    )
+                else:
+                    db.refresh(user)
+            return user
+        except (OperationalError, DisconnectionError) as e:
+            db.rollback()
+            if attempt < max_retries - 1:
+                time.sleep(0.5 * (2 ** attempt))  # Exponential backoff
+                continue
+            raise HTTPException(
+                status_code=503,
+                detail="Database temporarily unavailable. Please try again in a moment."
+            )
 
 def get_current_user_optional(
     credentials = Security(bearer_scheme),
@@ -257,7 +281,13 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 @router.get("/me", response_model=UserResponse)
 def read_users_me(current_user: User = Depends(get_current_user)):
-    return UserResponse(id=current_user.id, name=current_user.name, email=current_user.email, has_api_key=bool(current_user.api_key))
+    try:
+        return UserResponse(id=current_user.id, name=current_user.name, email=current_user.email, has_api_key=bool(current_user.api_key))
+    except (OperationalError, DisconnectionError) as e:
+        raise HTTPException(
+            status_code=503,
+            detail="Database temporarily unavailable. Please try again in a moment."
+        )
 
 @router.delete("/me")
 def delete_user_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -270,7 +300,14 @@ class ApiKeyUpdate(BaseModel):
 
 @router.put("/me/api_key", response_model=UserResponse)
 def update_api_key(update: ApiKeyUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    current_user.api_key = encrypt_api_key(validate_and_clean_api_key(update.api_key))
-    db.commit()
-    db.refresh(current_user)
-    return UserResponse(id=current_user.id, name=current_user.name, email=current_user.email, api_key=None) 
+    try:
+        current_user.api_key = encrypt_api_key(validate_and_clean_api_key(update.api_key))
+        db.commit()
+        db.refresh(current_user)
+        return UserResponse(id=current_user.id, name=current_user.name, email=current_user.email, api_key=None)
+    except (OperationalError, DisconnectionError) as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Database temporarily unavailable. Please try again in a moment."
+        ) 

@@ -17,6 +17,7 @@ from typing import List, Dict, Any, Optional
 from ...models.chat import Message, ChatRequest, ChatResponse, Chat, MessageDB, User
 from ...services.openrouter import generate_chat_completion
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError, DisconnectionError
 from ...core.database import SessionLocal, get_db
 from pydantic import BaseModel
 from .user import get_current_user, get_current_user_optional
@@ -335,6 +336,11 @@ def get_chats(db: Session = Depends(get_db), current_user: User = Depends(get_cu
                 )
             )
         return chat_responses
+    except (OperationalError, DisconnectionError) as e:
+        raise HTTPException(
+            status_code=503,
+            detail="Database temporarily unavailable. Please try again in a moment."
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
