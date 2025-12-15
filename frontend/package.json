@@ -1,5 +1,5 @@
 {
-  "name": "t3-chat-clone-frontend",
+  "name": "teatreechat",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -21,7 +21,7 @@
     "eslint": "^8.48.0",
     "eslint-config-next": "^13.4.19",
     "framer-motion": "^12.19.1",
-    "next": "^15.3.3",
+    "next": "16.0.10",
     "postcss": "^8.4.28",
     "postcss-nested": "^7.0.2",
     "react": "^18.2.0",
